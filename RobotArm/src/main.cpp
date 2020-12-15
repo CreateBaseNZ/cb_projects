@@ -3,6 +3,7 @@
 #include "Servo.h"
 #include "SoftwareSerial.h"
 
+// Testing the push
 char bitData[100];
 float data[20];
 size_t numRead;
@@ -72,5 +73,4 @@ void loop()
   {
     // Mode 3
   }
-
 }
