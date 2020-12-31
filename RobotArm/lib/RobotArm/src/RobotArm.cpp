@@ -37,7 +37,7 @@ void RobotArm::ConfigurePins()
     for (int i = 0; i < noOfJoints; i++)
     {
         Serial << "Configuring Pin: " << i << "\n";
-        servoMotors[i].attach(i + 2, 500, 2500);
+        servoMotors[i].attach(i + 2);
         if (i == 0)
         {
             servoMotors[i].writeMicroseconds(500);
@@ -56,6 +56,8 @@ void RobotArm::CalibrateServos()
     Serial.println("Calibrating...");
     for (int i = 0; i < noOfJoints; i++)
     {
+        Serial << "Calirbrating Lower: " << i << "\n";
+
         servoMotors[i].writeMicroseconds(500);
         if (i == 1)
         {
@@ -70,6 +72,9 @@ void RobotArm::CalibrateServos()
 
     for (int i = 0; i < noOfJoints; i++)
     {
+        Serial << "Calirbrating higher: " << i << "\n";
+
+
         servoMotors[i].writeMicroseconds(2500);
         if (i == 1)
         {
@@ -83,21 +88,72 @@ void RobotArm::CalibrateServos()
     Serial.println("Calibration Complete");
 }
 
+void RobotArm::Move_position_4link(float r,float z, float theta, float alpha){
+    float A,B,C,a,b,c,angles[4],cosAngle_2=0.0;
+    angles[0]=alpha;
+    
+    A=r*cos(alpha)-linkLengths[3]*cos(alpha)*cos(theta);
+    B=r*sin(alpha)-linkLengths[3]*sin(alpha)*cos(theta);
+    C=z-linkLengths[0]-linkLengths[3]*sin(theta);
+    
+    cosAngle_2=(float)((pow(A,2)+pow(B,2)+pow(C,2)-pow(linkLengths[1],2)-pow(linkLengths[2],2))/(2*linkLengths[2]*linkLengths[1]));
+    if(abs(cosAngle_2)>1){
+        Serial<<"Cant Reach Point\n";
+        return ;
+    }
+    angles[2]=acos(cosAngle_2);
+    a=linkLengths[2]*sin(angles[2]);
+    b=linkLengths[1]+linkLengths[2]*cos(angles[2]);
+    c=C;
+    angles[1]=atan2(c,sqrt(pow(a,2)+pow(b,2)-pow(c,2)))-atan2(a,b);
+    angles[3]=theta-angles[2]-angles[1];
+    if(angles[1]>M_PI ||angles[1]<0||abs(angles[3])>M_PI_2){
+        angles[1]=atan2(c,-sqrt(pow(a,2)+pow(b,2)-pow(c,2)))-atan2(a,b);
+        angles[3]=theta-angles[2]-angles[1];
+    }
+
+    for(int i=0;i<noOfJoints;i++){
+        if(i==1){
+            if (angles[i]>M_PI ||angles[i]<0){
+                Serial<<"Cant Reach Point\n";
+                return ;
+            }
+        }else{
+            if (abs(angles[i])>M_PI_2){
+                Serial<<"Cant Reach Point\n";
+                return ;
+            }
+        }
+    }
+
+    for( int i=0;i<noOfJoints;i++){
+        if(i>1){
+            angles[i]+=M_PI_2;
+        }
+        
+        servoMotors[i].write(angles[i]*180/M_PI);
+    }
+    Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";
+
+    return ;
+    
+}
+
 // Uses velocity IK to determine actuation for motors
 void RobotArm::Move(float vx, float vy, float vz, float wx, float wy, float wz)
 {
     Matrix<4, 1> targetVelocity = {vx, vy, vz, wx};
     targetVelocity *= 2;
 
-    float temp[8];
+    float temp;
     for (int i = 0; i < noOfJoints; i++)
     {
-        temp[i] = GetServoDegrees(i);
+        temp = GetServoDegrees(i);
         if (i > 0)
         {
-            temp[i] -= 90;
+            temp -= 90;
         }
-        jointAngles[i] = Mapf(temp[i], -90, 90, -M_PI_2, M_PI_2);
+        jointAngles[i] = temp*M_PI_2/90;
     }
 
     Matrix<4, 4> armTransform[noOfJoints + 1];
@@ -118,6 +174,8 @@ float RobotArm::Mapf(float value, float fromLow, float fromHigh, float toLow, fl
 {
     return ((value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow);
 }
+
+
 
 // Performs forward kinematics on the arm to determine the end effectors transformation matrix
 void RobotArm::ForwardKinematics(Matrix<4, 4> o[], float r[], float t[])

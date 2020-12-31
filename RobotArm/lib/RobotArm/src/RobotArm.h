@@ -22,6 +22,7 @@ public:
     void ConfigurePins();
     void CalibrateServos();
     void Move(float vx, float vy, float vz, float wx, float wy, float wz);
+    void Move_position_4link(float r,float z, float theta, float alpha);
     float GetServoDegrees(int servoNumber);
     float Mapf(float value, float fromLow, float fromHigh, float toLow, float toHigh);
 
