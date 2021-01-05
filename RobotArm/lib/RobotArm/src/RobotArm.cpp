@@ -59,11 +59,17 @@ void RobotArm::CalibrateServos()
         Serial << "Calirbrating Lower: " << i << "\n";
 
         servoMotors[i].writeMicroseconds(500);
-        if (i == 1)
-        {
-            servoMotors[i + 1].writeMicroseconds(2500);
-        }
+        // if (i == 1)
+        // {
+        //     servoMotors[i + 1].writeMicroseconds(2500);
+        // }
         delay(3000);
+        char input ='s';
+        while(input!='d'){
+            if(Serial.available()){
+                input=Serial.read();
+            }
+        }
         servoLowerLimit[i] = analogRead(i);
         servoMotors[i].writeMicroseconds(1500);
     }
@@ -76,11 +82,18 @@ void RobotArm::CalibrateServos()
 
 
         servoMotors[i].writeMicroseconds(2500);
-        if (i == 1)
-        {
-            servoMotors[i + 1].writeMicroseconds(500);
-        }
+        // if (i == 1)
+        // {
+        //     servoMotors[i + 1].writeMicroseconds(500);
+        // }
         delay(3000);
+        char input ='s';
+
+        while(input!='d'){
+            if(Serial.available()){
+                input=Serial.read();
+            }
+        }
         servoUpperLimit[i] = analogRead(i);
         servoMotors[i].writeMicroseconds(1500);
     }
@@ -88,54 +101,135 @@ void RobotArm::CalibrateServos()
     Serial.println("Calibration Complete");
 }
 
-void RobotArm::Move_position_4link(float r,float z, float theta, float alpha){
-    float A,B,C,a,b,c,angles[4],cosAngle_2=0.0;
-    angles[0]=alpha;
+void RobotArm::ResetDraw(){
+    DrawValue=0;
+    DrawingDone=false;
+}
+
+float RobotArm::torad(float angle){
+    return angle*M_PI/180;
+}
+
+float RobotArm::todeg(float angle){
+    return angle*180/M_PI;
+}
+
+float RobotArm::HalfCircle_round(float input){
+    input=round(input/0.01)*0.01;
+    while(input<-M_PI){
+        input+=2*M_PI;
+    }
+    input=todeg(input);
+    input=(int(input+90))%180;
+    return torad(input-90);
+}
+
+float RobotArm::round2dp(float input){
+    return round(input/0.01)*0.01;
+}
+
+float RobotArm::Circle_round(float input){
+    input=round(input/0.01)*0.01;
+    while(input<-M_PI){
+        input+=2*M_PI;
+    }
+    input=todeg(input);
+    input=(int(input+180))%360;
+    return torad(input-180);
+}
+
+
+
+void RobotArm::DrawCircle(float raduis, float z){
+    int interval= 360/45;
+    if(!DrawingDone){
+        if(Move_position_4link(raduis,z,270,DrawValue*interval)){
+            bool notReached=false;
+            for(int i=0;i<noOfJoints && !notReached;i++){
+                float error=servoMotors[i].read()-GetServoDegrees(i);
+                Serial<<"Motor "<<i<<": "<<servoMotors[i].read()<<", "<<GetServoDegrees(i)<<" with error of "<<abs(error)<<"\n";
+                if(abs(error)>4){
+                    notReached=true;
+                }
+            }
+            if(!notReached){
+                if(DrawValue*interval>=360){
+                    DrawingDone=true;
+                    Serial<<"Drawing Done\n";
+                    return;
+                }else{
+                    DrawValue++;
+                    Serial<<"Point "<<DrawValue<<"\n";
+                }
+            }
+        }else{
+            Serial<<"Drawing Can't be Done\n";
+            DrawingDone=true;
+            return;
+        }
+    }
+}
+
+
+
+bool RobotArm::Move_position_4link(float r,float z, float theta_deg, float alpha_deg){
+    float alpha=alpha_deg*M_PI/180;
+    float theta=theta_deg*M_PI/180;
+    float R,C,a,b,angles[4],cosAngle_2=0.0; 
+
+
+    alpha=Circle_round(alpha);
+    angles[0]=atan(sin(alpha)/ cos(alpha));
     
-    A=r*cos(alpha)-linkLengths[3]*cos(alpha)*cos(theta);
-    B=r*sin(alpha)-linkLengths[3]*sin(alpha)*cos(theta);
+    R=r-linkLengths[3]*cos(theta);
     C=z-linkLengths[0]-linkLengths[3]*sin(theta);
-    
-    cosAngle_2=(float)((pow(A,2)+pow(B,2)+pow(C,2)-pow(linkLengths[1],2)-pow(linkLengths[2],2))/(2*linkLengths[2]*linkLengths[1]));
+    cosAngle_2=(float)((pow(R,2)+pow(C,2)-pow(linkLengths[1],2)-pow(linkLengths[2],2))/(2*linkLengths[2]*linkLengths[1]));
     if(abs(cosAngle_2)>1){
         Serial<<"Cant Reach Point\n";
-        return ;
+        return false;
     }
-    angles[2]=acos(cosAngle_2);
+    angles[2]=round2dp(acos(cosAngle_2));
+
+    if(abs(alpha)<=M_PI_2){
+        angles[2]=-angles[2];
+    }
+
     a=linkLengths[2]*sin(angles[2]);
     b=linkLengths[1]+linkLengths[2]*cos(angles[2]);
-    c=C;
-    angles[1]=atan2(c,sqrt(pow(a,2)+pow(b,2)-pow(c,2)))-atan2(a,b);
-    angles[3]=theta-angles[2]-angles[1];
+    angles[1]=round2dp(atan2(C,sqrt(pow(a,2)+pow(b,2)-pow(C,2)))-atan2(a,b));
+    angles[3]=HalfCircle_round(theta-angles[2]-angles[1]);
+
     if(angles[1]>M_PI ||angles[1]<0||abs(angles[3])>M_PI_2){
-        angles[1]=atan2(c,-sqrt(pow(a,2)+pow(b,2)-pow(c,2)))-atan2(a,b);
-        angles[3]=theta-angles[2]-angles[1];
+        angles[1]=round2dp(atan2(C,-sqrt(pow(a,2)+pow(b,2)-pow(C,2)))-atan2(a,b));
+        angles[3]=HalfCircle_round(theta-angles[2]-angles[1]);
     }
 
     for(int i=0;i<noOfJoints;i++){
+        angles[i]=round(angles[i]/0.01)*0.01;
+
         if(i==1){
             if (angles[i]>M_PI ||angles[i]<0){
                 Serial<<"Cant Reach Point\n";
-                return ;
+                return false;
             }
         }else{
             if (abs(angles[i])>M_PI_2){
                 Serial<<"Cant Reach Point\n";
-                return ;
+                return false;
             }
         }
     }
 
     for( int i=0;i<noOfJoints;i++){
-        if(i>1){
+        if(i!=1){
             angles[i]+=M_PI_2;
         }
-        
-        servoMotors[i].write(angles[i]*180/M_PI);
+        angles[i]=angles[i]*180/M_PI;
+        servoMotors[i].write(angles[i]);
     }
-    Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";
+  //  Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";
 
-    return ;
+    return true;
     
 }
 
@@ -254,6 +348,12 @@ Matrix<noOfJoints, 1> RobotArm::GaussianElimination(Matrix<noOfJoints, noOfJoint
 
     return jointVelocity;
 }
+
+
+
+
+
+
 
 // Calculates jacobian matrix for the robotic arm required for velocity IK
 Matrix<noOfJoints, noOfJoints> RobotArm::CalculateJacobian(Matrix<4, 4> transform[])

@@ -33,21 +33,40 @@ void Parse(char input[], float output[])
   }
 }
 
+
+float torad(float angle){
+    return angle*M_PI/180;
+}
+
+int alpha_deg=0;
 void setup()
 {
   Serial.begin(9600);
   robotArm.ConfigurePins();
   robotArm.CalibrateServos();
   pinMode(7, OUTPUT);
-
+  robotArm.ResetDraw();
+  delay(1000);
+  Serial<<"Drawing Starting\n";
 }
 
+float last_t=0;
 void loop()
 {
-  robotArm.Move_position_4link(0.15,0.155,0,0);
-  delay(500);
 
-  // digitalWrite(7, HIGH); // Supplies power to Bluetooth Module
+
+  float r, z,  theta_deg;
+  float angle1=50,angle2=50,angle3=0;
+  theta_deg=angle1+angle2+angle3;
+  theta_deg=270;
+  r=2*.105*cos(torad(35));//linkLengths[1]*cos(torad(angle1))+linkLengths[2]*cos(torad(angle1+angle2))+linkLengths[3]*cos(torad(angle2+angle1+angle3));
+  z=0.005;//linkLengths[0]+linkLengths[1]*sin(torad(angle1))+linkLengths[2]*sin(torad(angle1+angle2))+linkLengths[3]*sin(torad(angle1+angle2+angle3));
+  robotArm.DrawCircle(r,z);
+
+  // robotArm.Move_position_4link(r,z,theta_deg,alpha_deg);
+  // delay(500);
+
+  // digitalWrite(7, HIGH); // Supplies power  to Bluetooth Module
 
   // // Read incomming serial data for commands
   // if (Serial.available() > 0)
