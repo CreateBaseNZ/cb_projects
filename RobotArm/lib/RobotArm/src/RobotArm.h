@@ -17,6 +17,7 @@ public:
 
 
     void DrawCircle(float raduis, float z);
+    void DrawSquare(float Length,float z);
     void ResetDraw();
     RobotArm();
     RobotArm(float linkLengths[noOfJoints + 1]);
@@ -24,7 +25,7 @@ public:
     void DetachMotors();
     void ConfigurePins();
     void CalibrateServos();
-    void Move(float vx, float vy, float vz, float wx, float wy, float wz);
+    void Move(float r_dot, float z_dot, float theta_dot, float alpha_dot, float wy, float wz,float time);
     bool Move_position_4link(float r,float z, float theta, float alpha);
     float GetServoDegrees(int servoNumber);
     float Mapf(float value, float fromLow, float fromHigh, float toLow, float toHigh);
@@ -33,9 +34,10 @@ private:
     int servoLowerLimit[noOfJoints];
     int servoUpperLimit[noOfJoints];
     float linkLengths[noOfJoints + 1];
-    float DrawValue;
+    int DrawValue;
     bool DrawingDone;
 
+    void FindLocation(float loaction[]);
 
     float GetServoMicroseconds(int servoNumber);
     float torad(float angle);
