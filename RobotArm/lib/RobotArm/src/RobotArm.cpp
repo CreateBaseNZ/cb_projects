@@ -48,6 +48,32 @@ void RobotArm::ConfigurePins()
         }
     }
 }
+void RobotArm::ConfigureUltraSonic(int pins[noOfSonar]){
+    for(int i=0;i<noOfSonar;i++){
+        sonarTrigPin[i]=pins[i];
+        pinMode(sonarTrigPin[i],OUTPUT);
+        pinMode(sonarTrigPin[i]+1,INPUT);
+    }
+    Ultrasonic=true;
+}
+
+float RobotArm::findDistance(int sonarNo){
+    if(Ultrasonic){
+        int sonarPin=sonarTrigPin[sonarNo];
+        digitalWrite(sonarPin, HIGH);
+        delayMicroseconds(2);
+        digitalWrite(sonarPin, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(sonarPin, LOW);
+        long duration = pulseIn(sonarPin+1, HIGH);
+        if (duration==0){
+            return -2;
+        }
+        return 330*duration/2/10004;
+    }
+    return -1;
+}
+
 
 // Calibration sequence takes the servos to their limits and records
 // the positional feedback value
@@ -63,9 +89,7 @@ void RobotArm::CalibrateServos()
         // {
         //     servoMotors[i + 1].writeMicroseconds(2500);
         // }
-        delay(3000);
-        char input ='s';
-        
+        delay(3000);        
         servoLowerLimit[i] = analogRead(i);
         servoMotors[i].write(90);
     }
@@ -121,19 +145,54 @@ float RobotArm::HalfCircle_round(float input){
     return input;
 }
 
-float RobotArm::round2dp(float input){
-    return round(input/0.01)*0.01;
+
+void RobotArm::HandControl(float time){
+    float lowest=40,distance,velocities[noOfSonar]={0,0,0};int lowsetindex=-1;
+    Serial<<"distancesss ";
+    for(int i=0;i<noOfSonar;i++){
+        distance=findDistance(i);
+        if(distance<lowest&&distance>=0){
+            lowsetindex=i;
+            lowest=distance;
+        }
+        Serial<<distance<<", ";
+    }
+    Serial<<"\n";
+    Serial<<lowsetindex<<"\n";
+    if(lowsetindex!=-1){    
+        velocities[lowsetindex]=0.01;
+
+        float position[4];
+        FindLocation(position);
+        float v_y=(velocities[1]+velocities[2])*cos(torad(60))- velocities[0];
+        float v_x=-(velocities[1]-velocities[2])*cos(torad(30));
+        Serial<<" vel:(x,y)"<<v_x<<", "<<v_y<<"\n";
+        float theta=torad(position[2]),r=position[0],alpha=torad(position[3]);
+        float v_z=v_y*cos(theta); 
+        float v_alpha,v_r;
+        if(cos(alpha)==0){
+            v_alpha=0;
+            v_r=v_y/sin(alpha);
+        }
+        else{
+            v_alpha=v_x/(r*cos(alpha)+r*(pow(sin((alpha)),2))/cos((alpha)));
+            v_r=r*v_alpha*sin((alpha))/cos(alpha);
+        }
+        v_r-=v_y*sin(theta);
+        
+        Serial<<"Velocity(v_z,v_r,v_alpha): "<<v_z<< ", "<<v_r<<", "<<v_alpha<<"\n";
+        Move(v_r,v_z,0,todeg(v_alpha),0,0,time);
+    } 
 }
 
+
 float RobotArm::Circle_round(float input){
-    while(input<-M_PI){
+    while(input<=-M_PI){
         input+=2*M_PI;
     }
-    input=todeg(input);
-    input=(int(input+180))%360;
-    input=torad(input-180);
-    input=round(input/0.01)*0.01;
-
+    while(input>M_PI){
+        input-=2*M_PI;
+    }
     return input;
 }
 
@@ -211,57 +270,88 @@ void RobotArm::DrawCircle(float raduis, float z){
         }
     }
 }
+float RobotArm::roundXdp(float input,int decimalPlaces){
+    float divider=pow(10,-decimalPlaces);
+    return (round(input/divider))*divider;
+}
 
 
 
 bool RobotArm::Move_position_4link(float r,float z, float theta_deg, float alpha_deg){
+    float pi=M_PI,pi_2=M_PI_2;
     float alpha=alpha_deg*M_PI/180;
     float theta=theta_deg*M_PI/180;
-    float A,B,C,a,b,angles[4],cosAngle_2=0.0; 
-
+    float A,B,C,a,b,angles[4],cosAngle_2=0.0,cosAngle_2_num; 
 
     alpha=Circle_round(alpha);
     angles[0]=atan(sin(alpha)/ cos(alpha));
-    
     A=r*cos(alpha)-linkLengths[3]*cos(theta)*cos(angles[0]);
     B=r*sin(alpha)-linkLengths[3]*cos(theta)*sin(angles[0]);    
     C=z-linkLengths[0]-linkLengths[3]*sin(theta);
-    cosAngle_2=(float)((pow(A,2)+pow(B,2)+pow(C,2)-pow(linkLengths[1],2)-pow(linkLengths[2],2))/(2*linkLengths[2]*linkLengths[1]));
-    if(abs(cosAngle_2)>1){
-        // Serial<<"Cant Reach Point 1\n";
-        return false;
+    cosAngle_2_num=pow(A,2)+pow(B,2)+pow(C,2)-pow(linkLengths[1],2)-pow(linkLengths[2],2);
+    if(abs(cosAngle_2_num)<0.001){
+        angles[2]=pi/2;
+    }else if(abs(pow(A,2)+pow(B,2)+pow(C,2)-pow(0.21,2))<0.0001){
+        angles[2]=0;
     }
-    Serial<<"Cosine: "<<cosAngle_2<<"\n";
-    angles[2]=(acos(cosAngle_2));
-    Serial<<"Angle_2: "<<angles[2]<<"\n";
+    else{
+        cosAngle_2=cosAngle_2_num/(2*linkLengths[2]*linkLengths[1]);
+        if(abs(cosAngle_2)>1){
+            float g=(pow(A,2)+pow(B,2)+pow(C,2));
+            Serial<<"Can't Reach Point: "<<g<<"\n";
+            return false;
+        }
+        angles[2]=acos(cosAngle_2);
+    }
+    if(abs(C)<0.0001){
+        C=0;
+    }
+    a=roundXdp(linkLengths[2]*sin(angles[2]),4);
+    b=roundXdp(linkLengths[1]+linkLengths[2]*cos(angles[2]),4);
+    float At_1,At_2;
+    At_2=atan2(a,b);
     if(abs(alpha)<=M_PI_2){
-        angles[2]=-angles[2];
+        At_1=atan2(C,sqrt(pow(a,2)+pow(b,2)-pow(C,2)));
+        Serial<<At_1<<"\n";
+        angles[1]=At_1-At_2;
+    }else{
+        At_1=atan2(C,-sqrt(pow(a,2)+pow(b,2)-pow(C,2)));
+        if(At_1<0){
+            At_1=At_1+2*pi;
+        }
+        angles[1]=At_1-At_2;
     }
-    Serial<<"Angle_2: "<<angles[2]<<"\n";
+    angles[3]=theta-angles[2]-angles[1];
+    angles[3]=Circle_round(angles[3]);
+        Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";
 
-    a=linkLengths[2]*sin(angles[2]);
-    b=linkLengths[1]+linkLengths[2]*cos(angles[2]);
-    angles[1]=(atan2(C,sqrt(pow(a,2)+pow(b,2)-pow(C,2)))-atan2(a,b));
+    if(abs(angles[3])>pi_2||angles[1]<0||angles[1]>pi){
+        Serial<<"Why?";
+              angles[2]=-angles[2];
+        a=roundXdp(linkLengths[2]*sin(angles[2]),4);
+        b=roundXdp(linkLengths[1]+linkLengths[2]*cos(angles[2]),4);
+        At_2=atan2(a,b);
 
-    angles[3]=(theta-angles[2]-angles[1]);
-                                //  Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";
-            angles[1]=round2dp(angles[1]);
-                    angles[3]=Circle_round(angles[3]);
-
-
-    if(angles[1]>M_PI ||angles[1]<0||abs(angles[3])>M_PI_2){
-                                        //  Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";
-
-        angles[1]=(atan2(C,-sqrt(pow(a,2)+pow(b,2)-pow(C,2)))-atan2(a,b));
-        angles[3]=Circle_round(theta-angles[2]-angles[1]);
+        if(abs(alpha)<=M_PI_2){
+            At_1=atan2(C,sqrt(pow(a,2)+pow(b,2)-pow(C,2)));
+            angles[1]=At_1-At_2;
+            angles[3]=theta-angles[2]-angles[1];
+        }else{
+            At_1=atan2(C,-sqrt(pow(a,2)+pow(b,2)-pow(C,2)));
+            if(At_1<0){
+                At_1=At_1+2*pi;
+            }
+            angles[1]=At_1-At_2;
+            angles[3]=theta-angles[2]-angles[1];
+        }
+        angles[3]=Circle_round(angles[3]);
     }
-
     for(int i=0;i<noOfJoints;i++){
-        angles[i]=round2dp(angles[i]);
+        angles[i]=roundXdp(angles[i],2);
         if(i==1){
             if (angles[i]>M_PI ||angles[i]<0){
                  Serial<<"Cant Reach Point 2\n";
-                //                  Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";
+                                  Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";
 
                 return false;
             }
@@ -279,7 +369,7 @@ bool RobotArm::Move_position_4link(float r,float z, float theta_deg, float alpha
         if(i!=1){
             angles[i]+=M_PI_2;
         }
-        angles[i]=angles[i]*180/M_PI;
+        angles[i]=round(angles[i]*180/M_PI);
         servoMotors[i].write(angles[i]);
     }
     Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";

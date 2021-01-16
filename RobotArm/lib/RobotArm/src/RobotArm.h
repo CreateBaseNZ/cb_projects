@@ -8,14 +8,14 @@
 #include "Helper.h"
 
 #define noOfJoints 4
-
+#define noOfSonar 3
 class RobotArm
 {
 public:
     float jointAngles[noOfJoints];
     Servo servoMotors[noOfJoints];
-
-
+    void HandControl(float time);
+    float findDistance(int sonarNo);
     void DrawCircle(float raduis, float z);
     void DrawSquare(float Length,float z);
     void ResetDraw();
@@ -24,6 +24,7 @@ public:
     void AttachMotors();
     void DetachMotors();
     void ConfigurePins();
+    void ConfigureUltraSonic(int pins[noOfSonar]);
     void CalibrateServos();
     void Move(float r_dot, float z_dot, float theta_dot, float alpha_dot, float wy, float wz,float time);
     bool Move_position_4link(float r,float z, float theta, float alpha);
@@ -34,11 +35,13 @@ private:
     int servoLowerLimit[noOfJoints];
     int servoUpperLimit[noOfJoints];
     float linkLengths[noOfJoints + 1];
+    int sonarTrigPin[noOfSonar];        
+    bool Ultrasonic=false;
     int DrawValue;
     bool DrawingDone;
 
     void FindLocation(float loaction[]);
-
+    float roundXdp(float input,int decimalPlaces);
     float GetServoMicroseconds(int servoNumber);
     float torad(float angle);
     float todeg(float angle);
