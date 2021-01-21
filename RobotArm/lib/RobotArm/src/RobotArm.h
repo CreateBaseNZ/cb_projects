@@ -3,18 +3,19 @@
 
 #include "Arduino.h"
 #include "Geometry.h"
-#include "Servo.h"
 #include "BasicLinearAlgebra.h"
+#include "VarSpeedServo.h"
 #include "Helper.h"
 
 #define noOfJoints 4
-#define noOfSonar 3
+#define noOfSonar 5
 class RobotArm
 {
 public:
     float jointAngles[noOfJoints];
-    Servo servoMotors[noOfJoints];
-    void HandControl(float time);
+    VarSpeedServo servoMotors[noOfJoints];
+    bool DetectPassage();
+    void HandControl();
     float findDistance(int sonarNo);
     void DrawCircle(float raduis, float z);
     void DrawSquare(float Length,float z);
@@ -24,13 +25,13 @@ public:
     void AttachMotors();
     void DetachMotors();
     void ConfigurePins();
-    void ConfigureUltraSonic(int pins[noOfSonar]);
+    void ConfigureUltraSonic(int pins[],int sonars);
     void CalibrateServos();
-    void Move(float r_dot, float z_dot, float theta_dot, float alpha_dot, float wy, float wz,float time);
+    void Move(float vx, float vy, float vz, float wx, float wy, float wz);
     bool Move_position_4link(float r,float z, float theta, float alpha);
     float GetServoDegrees(int servoNumber);
     float Mapf(float value, float fromLow, float fromHigh, float toLow, float toHigh);
-
+    
 private:
     int servoLowerLimit[noOfJoints];
     int servoUpperLimit[noOfJoints];
@@ -39,18 +40,19 @@ private:
     bool Ultrasonic=false;
     int DrawValue;
     bool DrawingDone;
-
+    int sonarUsed=0;
+    Matrix<noOfJoints, 1> InverseVelocityKinematics( float r[], float t[], Matrix<noOfJoints, 1> targetVelocity);
+    void ForwardKinematics(Matrix<4, 4> o[], float r[], float t[]);
+    Matrix<noOfJoints, noOfJoints> CalculateJacobian(Matrix<4, 4> transform[]);
     void FindLocation(float loaction[]);
     float roundXdp(float input,int decimalPlaces);
     float GetServoMicroseconds(int servoNumber);
     float torad(float angle);
     float todeg(float angle);
-    float HalfCircle_round(float input);
     float Circle_round(float input);
     float round2dp(float input);
-    void ForwardKinematics(Matrix<4, 4> o[], float r[], float t[]);
+    void findAngles1_3(float angles[],float theta,float alpha,float C);
+
     Matrix<noOfJoints, 1> GaussianElimination(Matrix<noOfJoints, noOfJoints> jacobian, Matrix<noOfJoints, 1> targetVelocity);
-    Matrix<noOfJoints, noOfJoints> CalculateJacobian(Matrix<4, 4> transform[]);
-    Matrix<noOfJoints, 1> InverseVelocityKinematics(Matrix<4, 4> o[], float r[], float t[], Matrix<noOfJoints, 1> targetVelocity);
 };
 #endif
