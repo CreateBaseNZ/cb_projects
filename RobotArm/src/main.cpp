@@ -78,7 +78,7 @@ void setup()
   int pin[3]={6,14,18};
   robotArm.ConfigureUltraSonic(pin,3);
   delay(1000);
-  EnterInputPos();
+  //EnterInputPos();
 }
 int num=0;
 void loop()
@@ -91,16 +91,39 @@ void loop()
   //   robotArm.Move_position_4link(out[0],out[1],out[2] ,out[3]);
   // }
 
+  //Testing Inverse Kinematics
+  // Matrix<4, 4> o[noOfJoints+1];
+  // float r[4]={0,torad(0),torad(0),torad(0)};
+  // robotArm.ForwardKinematics(o, r, linkLengths);
+  // Serial<<o[4]<<"\n";
+  // Matrix<noOfJoints,noOfJoints> VelForwardKinematics=robotArm.CalculateJacobian(o);
+  // Serial<<VelForwardKinematics<<"\n";
+  // if(VelForwardKinematics.Det()!=0){
+  //   Matrix<noOfJoints,noOfJoints> VelInverseKinematics=VelForwardKinematics.Inverse();
+  //   Serial<<VelInverseKinematics<<"\n";
+  //   Matrix<4,1> Targert={0,0,1,0};
+  //   Serial<<(VelInverseKinematics*Targert)<<"\n";
+  // }else{
+  //   Matrix<noOfJoints,1> zeroVector = {0, 0, 0, 0};
+  //   Serial<<"too Much\n";
+  // }
+  // while(1){
+  // }  
+  
+
+  //Test Move command
+  //robotArm.Move(0,0,0.0025,0,0,0);
+
   //Hand control mode
   //robotArm.HandControl();
 
 
   //Skeleton for basketball
-  for(int i=0;i<noOfPositions;i++){
-      robotArm.Move_position_4link(positions[i][0],positions[i][1],positions[i][2],positions[i][3]);
-      while(!robotArm.DetectPassage()){
-        delay(15);
-      }
-  }
-  while(1){}
+  // for(int i=0;i<noOfPositions;i++){
+  //     robotArm.Move_position_4link(positions[i][0],positions[i][1],positions[i][2],positions[i][3]);
+  //     while(!robotArm.DetectPassage()){
+  //       delay(15);
+  //     }
+  // }
+
 }

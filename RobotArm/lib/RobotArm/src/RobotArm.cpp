@@ -114,7 +114,7 @@ float RobotArm::todeg(float angle){
 
 
 void RobotArm::HandControl(){
-    float lowest=40,distance,velocities[3]={0,0,0};int lowsetindex=-1;
+    float lowest=10,distance,velocities[3]={0,0,0};int lowsetindex=-1;
     for(int i=0;i<sonarUsed;i++){
         distance=findDistance(i);
         if(distance<lowest&&distance>=0){
@@ -124,7 +124,7 @@ void RobotArm::HandControl(){
     }
 
     if(lowsetindex!=-1){    
-        velocities[lowsetindex]=0.01;
+        velocities[lowsetindex]=0.005;
         float v_y_dash=(velocities[1]+velocities[2])*cos(torad(60))- velocities[0];
         float v_x=(velocities[1]-velocities[2])*cos(torad(30));
         float theta=0;
@@ -225,7 +225,6 @@ bool RobotArm::Move_position_4link(float r,float z, float theta_deg, float alpha
         angles[i]=round(todeg(angles[i]));
         servoMotors[i].write(angles[i]);
     }
-    Serial<<angles[0]<<", "<<angles[1]<<", "<<angles[2]<<", "<<angles[3]<<"\n";
     return true;
 }
 
@@ -266,28 +265,24 @@ void RobotArm::Move(float vx, float vy, float vz, float wx, float wy, float wz)
     }  
 
     Matrix<noOfJoints,1> servoVelocity=InverseVelocityKinematics(jointAngles,linkLengths,targetVel);
-    
     for (int i=0;i<noOfJoints;i++){
         int dir=0;
         if(servoVelocity(i)>0){
             dir=180;
         }
-        if((servoMotors[i].read()==0&&servoVelocity(i)<0)||(servoMotors[i].read()==180&&servoVelocity(i)>0))
-        {
+        if((servoMotors[i].read()==0&&servoVelocity(i)<0)||(servoMotors[i].read()==180&&servoVelocity(i)>0||isnan(servoVelocity(i)))){
             for(int j=0;j<noOfJoints;j++){
-                servoMotors[j].stop();
+                servoMotors[j].write(Mapf(jointAngles[j],-M_PI_2,M_PI_2,0,180));
             }
             break;
         }
         float speed_ticks=(servoVelocity(i)*180.0*2.5/M_PI);
         speed_ticks=(abs(speed_ticks));
         if(speed_ticks<=1){
-            servoMotors[i].stop();
+            servoMotors[i].write(Mapf(jointAngles[i],-M_PI_2,M_PI_2,0,180));
         }else{
-            servoMotors[i].write(dir,round(speed_ticks));
+            servoMotors[i].write(dir,speed_ticks+1);
         }
-        
-    
     }
 }
 
@@ -326,62 +321,6 @@ void RobotArm::ForwardKinematics(Matrix<4, 4> o[], float r[], float t[])
     }
 }
 
-// Solves systems of equations through gaussian elimination method.
-Matrix<noOfJoints, 1> RobotArm::GaussianElimination(Matrix<noOfJoints, noOfJoints> jacobian, Matrix<noOfJoints, 1> targetVelocity)
-{
-    Matrix<noOfJoints, noOfJoints + 1> augment = jacobian || targetVelocity;
-    float scalar;
-
-    // Get zeros in lower left
-    for (int i = 0; i < noOfJoints; i++)
-    {
-        scalar = augment(i, i);
-        if (scalar == 0)
-        {
-            break;
-        }
-        for (int j = 0; j <= noOfJoints; j++)
-        {
-            augment(i, j) /= scalar;
-        }
-
-        for (int j = i + 1; j < noOfJoints; j++)
-        {
-            scalar = augment(j, i);
-            if (scalar == 0)
-            {
-                break;
-            }
-            for (int k = 0; k <= noOfJoints; k++)
-            {
-                augment(j, k) -= scalar * augment(i, k);
-            }
-        }
-    }
-
-    // Get zeros in top right
-    for (int i = noOfJoints - 1; i > 0; i--)
-    {
-
-        for (int j = i - 1; j >= 0; j--)
-        {
-            scalar = augment(j, i);
-            for (int k = 0; k <= noOfJoints; k++)
-            {
-                augment(j, k) -= scalar * augment(i, k);
-            }
-        }
-    }
-
-    // Output solved matrix
-    Matrix<noOfJoints, 1> jointVelocity;
-    for (int i = 0; i < noOfJoints; i++)
-    {
-        jointVelocity(i) = augment(i, noOfJoints);
-    }
-
-    return jointVelocity;
-}
 
 // Calculates jacobian matrix for the robotic arm required for velocity IK
 Matrix<noOfJoints, noOfJoints> RobotArm::CalculateJacobian(Matrix<4, 4> transform[])
@@ -434,7 +373,16 @@ Matrix<noOfJoints, 1> RobotArm::InverseVelocityKinematics( float r[], float t[],
 {
     Matrix<4, 4> o[noOfJoints+1];
     ForwardKinematics(o, r, t);
-    return (GaussianElimination(CalculateJacobian(o), targetVelocity));
+    Matrix<noOfJoints,noOfJoints> VelForwardKinematics=CalculateJacobian(o);
+    if(VelForwardKinematics.Det()!=0){
+        Matrix<noOfJoints,noOfJoints> VelInverseKinematics=VelForwardKinematics.Inverse();
+        Matrix<noOfJoints, 1> k=(VelInverseKinematics*targetVelocity);
+        
+        return k;
+    }else{
+        Matrix<noOfJoints,1> zeroVector = {0, 0, 0, 0};
+        return zeroVector;
+    }
 }
 
 bool RobotArm::DetectPassage(){
@@ -483,12 +431,10 @@ void RobotArm::DrawSquare(float Length,float z){
             drawingAngle=180;
         }
 
-        Serial<<"Point no. "<<DrawValue<<": "<<raduis<<", "<<z<<","<<angle<<"\n";
         if(Move_position_4link(raduis,z,drawingAngle,angle)){
             bool notReached=false;
             for(int i=0;i<noOfJoints && !notReached;i++){
                 float error=servoMotors[i].read()-GetServoDegrees(i);
-                Serial<<"Motor "<<i<<": "<<servoMotors[i].read()<<", "<<GetServoDegrees(i)<<" with error of "<<abs(error)<<"\n";
                 if(abs(error)>10){
                     notReached=true;
                 }
@@ -496,15 +442,12 @@ void RobotArm::DrawSquare(float Length,float z){
             if(!notReached){
                 if(DrawValue*interval>=360){
                     DrawingDone=true;
-                    Serial<<"Drawing Done\n";
                     return;
                 }else{
                     DrawValue++;
-                    Serial<<"Point "<<DrawValue<<"\n";
                 }
             }
         }else{
-            Serial<<"Drawing Can't be Done\n";
             DrawingDone=true;
             return;
         }
@@ -519,7 +462,6 @@ void RobotArm::DrawCircle(float raduis, float z){
             bool notReached=false;
             for(int i=0;i<noOfJoints && !notReached;i++){
                 float error=servoMotors[i].read()-GetServoDegrees(i);
-                Serial<<"Motor "<<i<<": "<<servoMotors[i].read()<<", "<<GetServoDegrees(i)<<" with error of "<<abs(error)<<"\n";
                 if(abs(error)>5){
                     notReached=true;
                 }
@@ -527,15 +469,12 @@ void RobotArm::DrawCircle(float raduis, float z){
             if(!notReached){
                 if(DrawValue*interval>=360){
                     DrawingDone=true;
-                    Serial<<"Drawing Done\n";
                     return;
                 }else{
                     DrawValue++;
-                    Serial<<"Point "<<DrawValue<<"\n";
                 }
             }
         }else{
-            Serial<<"Drawing Can't be Done\n";
             DrawingDone=true;
             return;
         }
@@ -550,7 +489,6 @@ void RobotArm::FindLocation(float locations[]){
         }else{
             servoAngles[i]=torad(servoMotors[i].read()-90);
         }
-        Serial<<servoMotors[i].read()<<", ";
     }    
     float x=0,y=0;
     locations[1]=linkLengths[0];
@@ -573,4 +511,61 @@ void RobotArm::FindLocation(float locations[]){
     }
     locations[3]=todeg(atan2(y,x));
     locations[0]=abs(sqrt(pow(x,2)+pow(y,2)));
+}
+
+
+// Solves systems of equations through gaussian elimination method.
+Matrix<noOfJoints, 1> RobotArm::GaussianElimination(Matrix<noOfJoints, noOfJoints> jacobian, Matrix<noOfJoints, 1> targetVelocity)
+{
+    Matrix<noOfJoints, noOfJoints + 1> augment = jacobian || targetVelocity;
+    float scalar;
+    // Get zeros in lower left
+    for (int i = 0; i < noOfJoints; i++)
+    {
+        scalar = augment(i, i);
+        if (scalar == 0)
+        {
+            break;
+        }
+        for (int j = 0; j <= noOfJoints; j++)
+        {
+            augment(i, j) /= scalar;
+        }
+
+        for (int j = i + 1; j < noOfJoints; j++)
+        {
+            scalar = augment(j, i);
+            if (scalar == 0)
+            {
+                break;
+            }
+            for (int k = 0; k <= noOfJoints; k++)
+            {
+                augment(j, k) -= scalar * augment(i, k);
+            }
+        }
+    }
+
+    // Get zeros in top right
+    for (int i = noOfJoints - 1; i > 0; i--)
+    {
+
+        for (int j = i - 1; j >= 0; j--)
+        {
+            scalar = augment(j, i);
+            for (int k = 0; k <= noOfJoints; k++)
+            {
+                augment(j, k) -= scalar * augment(i, k);
+            }
+        }
+    }
+
+    // Output solved matrix
+    Matrix<noOfJoints, 1> jointVelocity;
+    for (int i = 0; i < noOfJoints; i++)
+    {
+        jointVelocity(i) = augment(i, noOfJoints);
+    }
+
+    return jointVelocity;
 }
