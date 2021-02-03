@@ -8,7 +8,7 @@ float data[20];
 size_t numRead;
 float linkLengths[] = {0.05, 0.105, 0.105, 0.045};
 RobotArm robotArm(linkLengths);
-float positions[10][4];
+float positions[10][3];
 int noOfPositions=-1;
 // This function coverts a comma separated string into an array
 int Parse(char input[], float output[])
@@ -49,15 +49,20 @@ void EnterInputPos(){
       if(noOfPositions==-1){
         if (length==1 && data[0]>0 && data[0]<=10){
           noOfPositions=data[0];
+          Serial<<"Enter Postion Number 1:\n";
+        }else{
+          Serial<<"Enter a number between 1 and 10...\n";
         }
       }else{
-        if(length==4){
-          for(int i=0;i<4;i++){
+        if(length==3){
+          for(int i=0;i<3;i++){
             positions[index][i]=data[i];
           }
           index++;
           if(index==noOfPositions){
             Entering=true;
+          }else{
+            Serial<<"Enter Position Number "<<(index+1)<<":\n";
           }
         }
       }
@@ -74,10 +79,13 @@ void setup()
 {
   Serial.begin(9600);
   robotArm.ConfigurePins();
-  robotArm.Move_position_4link(0.15,0.155,180 ,180);
-  int pin[3]={6,14,18};
-  robotArm.ConfigureUltraSonic(pin,3);
+  robotArm.Move_position_4link(0.15,0.155,0 ,0);
+  //int pin[3]={6,14,18};
+  //robotArm.ConfigureUltraSonic(pin,3);
+
+  robotArm.ConfigureBasketBall();
   delay(1000);
+  Serial<<"How many input do you want?\n";
   //EnterInputPos();
 }
 int num=0;
@@ -119,11 +127,14 @@ void loop()
 
 
   //Skeleton for basketball
-  // for(int i=0;i<noOfPositions;i++){
-  //     robotArm.Move_position_4link(positions[i][0],positions[i][1],positions[i][2],positions[i][3]);
-  //     while(!robotArm.DetectPassage()){
-  //       delay(15);
-  //     }
-  // }
+  for(int i=0;i<noOfPositions;i++){
+    if(robotArm.Move_position_4link(positions[i][0],positions[i][1],positions[i][2],positions[i][3])){
+      delay(500);
+      while(!robotArm.DetectPassage()){
+        delay(1);
+      }
+    }    
+  }
+  //robotArm.DetectPassage();
 
 }

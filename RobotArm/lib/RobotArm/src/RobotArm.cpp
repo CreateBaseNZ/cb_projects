@@ -31,6 +31,9 @@ void RobotArm::DetachMotors()
         servoMotors[i].detach();
     }
 }
+void RobotArm::ConfigureBasketBall(){
+    pinMode(A4,INPUT);
+}
 
 void RobotArm::ConfigurePins()
 {
@@ -386,21 +389,14 @@ Matrix<noOfJoints, 1> RobotArm::InverseVelocityKinematics( float r[], float t[],
 }
 
 bool RobotArm::DetectPassage(){
-    float Distance=findDistance(0);
-    if(Distance<7){
-        while(Distance<7){
-            Distance=findDistance(0);
-        }
-        float t=millis();
-        while(millis()-t<1000){
-            Distance=findDistance(1);
-            if(Distance<7){
-                return true;
-            }
-        }
+    int val=analogRead(A4);
+    if(val<350){
+        return false;
+    }else{
+        Serial<<"Score!!"<<"\n";
+        delay(1000);
+        return true;
     }
-    return false;
-
 }
 
 

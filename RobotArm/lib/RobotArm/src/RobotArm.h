@@ -31,11 +31,9 @@ public:
     bool Move_position_4link(float r,float z, float theta, float alpha);
     float GetServoDegrees(int servoNumber);
     float Mapf(float value, float fromLow, float fromHigh, float toLow, float toHigh);
-        Matrix<noOfJoints, noOfJoints> CalculateJacobian(Matrix<4, 4> transform[]);
-    void ForwardKinematics(Matrix<4, 4> o[], float r[], float t[]);
-    Matrix<noOfJoints, 1> GaussianElimination(Matrix<noOfJoints, noOfJoints> jacobian, Matrix<noOfJoints, 1> targetVelocity);
-
+    void ConfigureBasketBall();
 private:
+int prev=0;
     int servoLowerLimit[noOfJoints];
     int servoUpperLimit[noOfJoints];
     float linkLengths[noOfJoints + 1];
@@ -53,6 +51,9 @@ private:
     float Circle_round(float input);
     float round2dp(float input);
     void findAngles1_3(float angles[],float theta,float alpha,float C);
+    Matrix<noOfJoints, 1> GaussianElimination(Matrix<noOfJoints, noOfJoints> jacobian, Matrix<noOfJoints, 1> targetVelocity);
+    Matrix<noOfJoints, noOfJoints> CalculateJacobian(Matrix<4, 4> transform[]);
+    void ForwardKinematics(Matrix<4, 4> o[], float r[], float t[]);
 
 };
 #endif
