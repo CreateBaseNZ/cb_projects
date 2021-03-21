@@ -16,11 +16,11 @@ RobotArm::RobotArm(float linkLengths[])
     }
 }
 
-void RobotArm::AttachMotors()
+void RobotArm::AttachMotors(int pins[])
 {
     for (int i = 0; i < noOfJoints; i++)
     {
-        servoMotors[i].attach(i + 2, 500, 2500);
+        servoMotors[i].attach(pins[i]);
     }
 }
 
@@ -31,24 +31,20 @@ void RobotArm::DetachMotors()
         servoMotors[i].detach();
     }
 }
-void RobotArm::ConfigureBasketBall(){
-    pinMode(A4,INPUT);
+void RobotArm::ConfigureBasketBall(int pins[],int number,int limit[]){
+    for(int i=0;i<number;i++){
+        pinMode(pins[i],INPUT);
+        limits[i]=limit[i];
+        phototransisorPins[i]=pins[i];
+    }
+    noOfTransitors=number;
 }
 
-void RobotArm::ConfigurePins()
+void RobotArm::ConfigurePins(int pins[])
 {
-    for (int i = 0; i < noOfJoints; i++)
-    {
-        Serial << "Configuring Pin: " << i << "\n";
-        servoMotors[i].attach(i + 2);
-        if (i == 0)
-        {
-            servoMotors[i].writeMicroseconds(500);
-        }
-        else
-        {
-            servoMotors[i].writeMicroseconds(1500);
-        }
+    for (int i = 0; i < noOfJoints; i++){
+        servoMotors[i].attach(pins[i]);
+        servoMotors[i].write(90);
     }
 }
 void RobotArm::ConfigureUltraSonic(int pins[],int sonars){
@@ -58,18 +54,18 @@ void RobotArm::ConfigureUltraSonic(int pins[],int sonars){
         pinMode(sonarTrigPin[i]+1,INPUT);
     }
     sonarUsed=sonars;
-    Ultrasonic=true;
+
 }
 
 float RobotArm::findDistance(int sonarNo){
-    if(Ultrasonic && sonarNo>=0 && sonarNo<sonarUsed){
+    if( sonarNo>=0 && sonarNo<sonarUsed){
         int sonarPin=sonarTrigPin[sonarNo];
         digitalWrite(sonarPin, HIGH);
         delayMicroseconds(2);
         digitalWrite(sonarPin, HIGH);
         delayMicroseconds(10);
         digitalWrite(sonarPin, LOW);
-        long duration = pulseIn(sonarPin+1, HIGH,10000);
+        long duration = pulseIn(sonarPin+1, HIGH,100000);
         if (duration==0){
             return -2;
         }
@@ -77,33 +73,6 @@ float RobotArm::findDistance(int sonarNo){
     }
     return -1;
 }
-
-
-// Calibration sequence takes the servos to their limits and records
-// the positional feedback value
-void RobotArm::CalibrateServos()
-{
-    Serial.println("Calibrating...");
-    for (int i = 0; i < noOfJoints; i++)
-    {
-        Serial << "Calirbrating Lower: " << i << "\n";
-        servoMotors[i].write(0);
-        delay(3000);        
-        servoLowerLimit[i] = analogRead(i);
-        servoMotors[i].write(90);
-    }
-    delay(3000);
-    for (int i = 0; i < noOfJoints; i++)
-    {
-        Serial << "Calirbrating higher: " << i << "\n";
-        servoMotors[i].write(180);
-        delay(3000);
-        servoUpperLimit[i] = analogRead(i);
-        servoMotors[i].write(90);
-    }
-    Serial.println("Calibration Complete");
-}
-
 
 
 float RobotArm::torad(float angle){
@@ -120,26 +89,30 @@ void RobotArm::HandControl(){
     float lowest=10,distance,velocities[3]={0,0,0};int lowsetindex=-1;
     for(int i=0;i<sonarUsed;i++){
         distance=findDistance(i);
+        // Serial<<distance<<", ";
         if(distance<lowest&&distance>=0){
             lowsetindex=i;
             lowest=distance;
         }
     }
+    // Serial<<"\n";
+    // Serial<<lowest<<"\n";
 
     if(lowsetindex!=-1){    
-        velocities[lowsetindex]=0.005;
-        float v_y_dash=(velocities[1]+velocities[2])*cos(torad(60))- velocities[0];
-        float v_x=(velocities[1]-velocities[2])*cos(torad(30));
+        velocities[lowsetindex]=0.0025;
+        float v_y_dash=0;//(velocities[1]+velocities[2]) *cos(torad(60))-velocities[0];//
+        float v_x=(velocities[1]-velocities[2]);//*cos(torad(30));
         float theta=0;
         for(int i=1;i<noOfJoints;i++){
             if(i==1){
                 theta+=torad(servoMotors[i].read());
             }else{
-                theta=torad(servoMotors[i].read()-90);
+                theta+=torad(servoMotors[i].read()-90);
             }
         }
-        float v_z=-v_y_dash*cos(theta); 
-        float v_y=-v_y_dash*sin(theta);    
+        float v_z=v_y_dash*cos(theta); 
+        float v_y=v_y_dash*sin(theta);     
+
         Move(v_x,v_y,v_z,0,0,0);
 
     }
@@ -174,19 +147,23 @@ bool RobotArm::Move_position_4link(float r,float z, float theta_deg, float alpha
     float pi=M_PI,pi_2=M_PI_2;
     float alpha=Circle_round(torad(alpha_deg));
     float theta=torad(theta_deg);
-    float A,B,C,angles[4],cosAngle_2=0.0,cosAngle_2_num; 
+    float R,C,angles[4],cosAngle_2=0.0,cosAngle_2_num; 
 
     angles[0]=atan(sin(alpha)/ cos(alpha));
-
-    A=r*cos(alpha)-linkLengths[3]*cos(theta)*cos(angles[0]);
-    B=r*sin(alpha)-linkLengths[3]*cos(theta)*sin(angles[0]);    
+    R=-linkLengths[3]*cos(theta);
+    if(abs(alpha)>pi_2){
+        R-=r;
+    }else{
+        R+=r;
+    }
+    if(abs(R)<0.001){
+        R=0;
+    }
     C=z-linkLengths[0]-linkLengths[3]*sin(theta);
-
-
-    cosAngle_2_num=pow(A,2)+pow(B,2)+pow(C,2)-pow(linkLengths[1],2)-pow(linkLengths[2],2);
+    cosAngle_2_num=pow(R,2)+pow(C,2)-pow(linkLengths[1],2)-pow(linkLengths[2],2);
     if(abs(cosAngle_2_num)<0.001){
-        angles[2]=pi/2;
-    }else if(abs(pow(A,2)+pow(B,2)+pow(C,2)-pow(0.21,2))<0.0001){
+        angles[2]=-pi/2;
+    }else if(abs(pow(R,2)+pow(C,2)-pow((linkLengths[1]+linkLengths[2]),2))<0.0001){
         angles[2]=0;
     }
     else{
@@ -201,10 +178,10 @@ bool RobotArm::Move_position_4link(float r,float z, float theta_deg, float alpha
     if(abs(C)<0.0001){
         C=0;
     }
-    findAngles1_3(angles,theta,alpha,C);
+    findAngles1_3(angles,theta,R,C);
     if(abs(angles[3])>pi_2||angles[1]<0||angles[1]>pi){
         angles[2]=-angles[2];
-        findAngles1_3(angles,theta,alpha,C);
+        findAngles1_3(angles,theta,R,C);
     }
     for(int i=0;i<noOfJoints;i++){
         angles[i]=roundXdp(angles[i],2);
@@ -227,30 +204,23 @@ bool RobotArm::Move_position_4link(float r,float z, float theta_deg, float alpha
         }
         angles[i]=round(todeg(angles[i]));
         servoMotors[i].write(angles[i]);
+        Serial<<angles[i]<<", ";
     }
+    Serial<<"\n";
     return true;
 }
 
-void RobotArm::findAngles1_3(float angles[],float theta,float alpha,float C){
+void RobotArm::findAngles1_3(float angles[],float theta,float R,float C){
     float a,b,pi=M_PI;
     a=roundXdp(linkLengths[2]*sin(angles[2]),4);
     b=roundXdp(linkLengths[1]+linkLengths[2]*cos(angles[2]),4);
     float At_1,At_2;
     At_2=atan2(a,b);
-    float Adjacent_squared=(pow(a,2)+pow(b,2)-pow(C,2));
-    float Adjacent=0;
-    if(Adjacent_squared>=0){         
-        Adjacent=sqrt(Adjacent_squared);
+    At_1=atan2(C,R);                    
+    angles[1]=roundXdp(At_1-At_2,3);
+    if(angles[1]<-0.01){
+        angles[1]+=2*pi;
     }
-    if(abs(alpha)<=M_PI_2){            
-        At_1=atan2(C,Adjacent);
-    }else{
-        At_1=atan2(C,-Adjacent);            
-        if(At_1<0){
-            At_1=At_1+2*pi;
-        }    
-    }
-    angles[1]=At_1-At_2;
     angles[3]=theta-angles[2]-angles[1];
     angles[3]=Circle_round(angles[3]);
 }
@@ -389,14 +359,28 @@ Matrix<noOfJoints, 1> RobotArm::InverseVelocityKinematics( float r[], float t[],
 }
 
 bool RobotArm::DetectPassage(){
-    int val=analogRead(A4);
-    if(val<350){
-        return false;
-    }else{
-        Serial<<"Score!!"<<"\n";
-        delay(1000);
-        return true;
+   
+    for (int i=0;i<3;i++){
+        int val=analogRead(phototransisorPins[i]);
+        Serial<<val<<",";
+        if(val>limits[i]){
+            Serial<<"Score!!"<<"\n";
+           delay(1000);
+           return true;
+        }
     }
+    //delay(250);
+    Serial<<"\n";
+    return false;
+    //  
+    // 
+    // if(val<350){
+    //     return false;
+    // }else{
+    //     Serial<<"Score!!"<<"\n";
+    //     delay(1000);
+    //     return true;
+    // }
 }
 
 
@@ -564,4 +548,29 @@ Matrix<noOfJoints, 1> RobotArm::GaussianElimination(Matrix<noOfJoints, noOfJoint
     }
 
     return jointVelocity;
+}
+
+// Calibration sequence takes the servos to their limits and records
+// the positional feedback value
+void RobotArm::CalibrateServos()
+{
+    Serial.println("Calibrating...");
+    for (int i = 0; i < noOfJoints; i++)
+    {
+        Serial << "Calirbrating Lower: " << i << "\n";
+        servoMotors[i].write(0);
+        delay(3000);        
+        servoLowerLimit[i] = analogRead(i);
+        servoMotors[i].write(90);
+    }
+    delay(3000);
+    for (int i = 0; i < noOfJoints; i++)
+    {
+        Serial << "Calirbrating higher: " << i << "\n";
+        servoMotors[i].write(180);
+        delay(3000);
+        servoUpperLimit[i] = analogRead(i);
+        servoMotors[i].write(90);
+    }
+    Serial.println("Calibration Complete");
 }
