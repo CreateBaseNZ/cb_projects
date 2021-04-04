@@ -298,22 +298,29 @@ bool RobotArm::Move_position_xyz(float x=0, float y=0,float z=0, float theta_deg
     lengths[i-1]=linkLengths[i]*1000;
   }
   Fabrik2D fabrik2D(noOfJoints, lengths);
-  fabrik2D.setTolerance(0.5);
-  bool output=fabrik2D.solve2(x, y, z-linkLengths[0], theta_deg*M_PI/180, 0, lengths);
+  fabrik2D.setTolerance(0.0001);
+  float theta = (theta_deg * M_PI / 180);
+  float new_x = 1000 * x;
+  float new_y = 1000 * y;
+  float new_z = 1000 * (z - linkLengths[0]);
+  bool output=fabrik2D.solve2(new_x,new_z,new_y, lengths);
   if(!output){
-      Serial << "Point can't be reached\\n";
+      Serial << "Point can't be reached\n";
       return output;
   }
-  angles[1] = fabrik2D.getAngle(0) * 57296 / 1000;
-  angles[2]=fabrik2D.getAngle(1)* 57296 / 1000;
-  angles[3]=fabrik2D.getAngle(2)* 57296 / 1000;
-  angles[0]=fabrik2D.getBaseAngle();
+  angles[1] = fabrik2D.getAngle(0);
+  angles[2] = fabrik2D.getAngle(1);
+  angles[3] = fabrik2D.getAngle(2);
+  angles[0] = fabrik2D.getBaseAngle();
   for( int i=0;i<noOfJoints;i++){
-    angles[i] = round(todeg(angles[i]));
-    servoMotors[i].write(angles[i]);
-    Serial << angles[i] << ", ";
+      angles[i] = angles[i] * 180 / M_PI + 90;
+      servoMotors[i].write(angles[i]);
+      Serial << angles[i] << ", ";
   }
-  Serial << "\\n";
+  Serial << "\n";
+
+ 
+
   return output;
 
 }
