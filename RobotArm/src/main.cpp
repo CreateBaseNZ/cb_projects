@@ -149,5 +149,14 @@ void loop()
   //     }
   //   }    
   // }
-  robotArm.DetectPassage();
+  //robotArm.DetectPassage();
+
+  
+  // float angles[4] = {90, 90, 90, 90};
+
+  // float z = linkLengths[0] + linkLengths[1] * cos(angles[1]) + linkLengths[2] * cos(angles[1] + angles[2]) + linkLengths[3] *cos(angles[1] + angles[2] + angles[3]);
+  // float r =  linkLengths[1] * sin(angles[1]) + linkLengths[2] * sin(angles[1] + angles[2]) + linkLengths[3] *sin(angles[1] + angles[2] + angles[3]);
+  // float x = r * cos(angles[0]);
+  // float y = r * sin(angles[0]);
+  // float theta = angles[1] + angles[2] + angles[3];
 }

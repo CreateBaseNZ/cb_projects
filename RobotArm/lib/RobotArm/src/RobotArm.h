@@ -6,6 +6,7 @@
 #include "BasicLinearAlgebra.h"
 #include "VarSpeedServo.h"
 #include "Helper.h"
+#include "FABRIK2D.h"
 
 #define noOfJoints 4
 #define noOfSonar 5
