@@ -15,6 +15,7 @@
 class RobotArm
 {
 public:
+    bool Move_position_xyz(float x, float y, float z, float theta_deg);
     float jointAngles[noOfJoints];
     VarSpeedServo servoMotors[noOfJoints];
     bool DetectPassage();

@@ -226,6 +226,75 @@ void RobotArm::findAngles1_3(float angles[],float theta,float R,float C){
 }
 
 
+bool RobotArm::Move_position_xyz(float x, float y,float z, float theta_deg){
+    float pi=M_PI,pi_2=M_PI_2;
+    float theta=torad(theta_deg);
+    float A,B,C,angles[4],cosAngle_2=0.0,cosAngle_2_num; 
+
+    angles[0]=atan(y/ x);
+    A = (x - linkLengths[3] * cos(angles[0]) * cos(theta));
+    B = (y - linkLengths[3] * sin(angles[0]) * cos(theta));
+    C = z - linkLengths[0] - linkLengths[3] * sin(theta);
+    cosAngle_2_num = pow(A, 2) + pow(B, 2) + pow(C, 2) - pow(linkLengths[1], 2) - pow(linkLengths[2], 2);
+    if (abs(cosAngle_2_num) < 0.001)
+    {
+        angles[2]=-pi/2;
+    }
+    else if (abs(pow(A, 2) + pow(B, 2) + pow(C, 2) - pow((linkLengths[1] + linkLengths[2]), 2)) < 0.0001)
+    {
+        angles[2]=0;
+    }
+    else{
+        cosAngle_2=cosAngle_2_num/(2*linkLengths[2]*linkLengths[1]);
+        if(cosAngle_2>1||cosAngle_2<0){
+            Serial<<"Can't Reach Point.\n";
+            return false;
+        }
+        angles[2]=acos(cosAngle_2);
+    }
+
+    if(abs(C)<0.0001){
+        C=0;
+    }
+    float R;
+    R = pow(A, 2) + pow(B, 2);
+    if(A<-0.001){
+        R = -R;
+    }
+    findAngles1_3(angles, theta, R, C);
+    if(abs(angles[3])>pi_2||angles[1]<0||angles[1]>pi){
+        angles[2]=-angles[2];
+        findAngles1_3(angles,theta,R,C);
+    }
+    for(int i=0;i<noOfJoints;i++){
+        angles[i]=roundXdp(angles[i],2);
+        if(i==1){
+            if (angles[i]>M_PI ||angles[i]<0){
+                Serial<<"Cant Reach Point.\n";
+                return false;
+            }
+        }else{
+            if (abs(angles[i])>M_PI_2){
+                Serial<<"Cant Reach Point.\n";
+                return false;
+            }
+        }
+    }
+
+    for( int i=0;i<noOfJoints;i++){
+        if(i!=1){
+            angles[i]+=M_PI_2;
+        }
+        angles[i]=round(todeg(angles[i]));
+        servoMotors[i].write(angles[i]);
+        Serial<<angles[i]<<", ";
+    }
+    Serial<<"\n";
+    return true;
+}
+
+
+
 // Uses velocity IK to determine actuation for motors
 void RobotArm::Move(float vx, float vy, float vz, float wx, float wy, float wz)
 {      
