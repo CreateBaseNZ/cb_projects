@@ -16,7 +16,8 @@
 class RobotArm
 {
 public:
-    bool Move_position_xyz(float x, float y, float z, float theta_deg);
+    bool Move_position_xyz_theta(float final_x, float final_y, float final_z, float theta_deg);
+    bool Move_position_xyz(float x, float y, float z);
     float jointAngles[noOfJoints];
     VarSpeedServo servoMotors[noOfJoints];
     bool DetectPassage();
@@ -37,6 +38,8 @@ public:
     float GetServoDegrees(int servoNumber);
     float Mapf(float value, float fromLow, float fromHigh, float toLow, float toHigh);
     void ConfigureBasketBall(int pins[],int number,int limit[]);
+    void ForwardKinematics(Matrix<4, 4> o[], float r[], float t[]);
+
 private:
     int noOfTransitors=0;
     int phototransisorPins[noOfPhototransitors];
@@ -59,7 +62,8 @@ private:
     void findAngles1_3(float angles[],float theta,float R,float C);
     Matrix<noOfJoints, 1> GaussianElimination(Matrix<noOfJoints, noOfJoints> jacobian, Matrix<noOfJoints, 1> targetVelocity);
     Matrix<noOfJoints, noOfJoints> CalculateJacobian(Matrix<4, 4> transform[]);
-    void ForwardKinematics(Matrix<4, 4> o[], float r[], float t[]);
-
+    float dotProduct(float v1[], float v2[], int size);
+    float vectorLength(float v[], int size);
+    float findAngle(float v1[], float v2[], int size);
 };
 #endif

@@ -226,106 +226,230 @@ void RobotArm::findAngles1_3(float angles[],float theta,float R,float C){
 }
 
 
-bool RobotArm::Move_position_xyz(float x=0, float y=0,float z=0, float theta_deg=0){
-    // float pi=M_PI,pi_2=M_PI_2;
-    // float theta=torad(theta_deg);
-    // float A,B,C,angles[4],cosAngle_2=0.0,cosAngle_2_num; 
+bool RobotArm::Move_position_xyz(float x=0, float y=0,float z=0){
+    float angles[4];
+    for (int i = 0; i < noOfJoints; i++){
+        angles[i] = (servoMotors[i].read() - 90) * M_PI / 180;
+    }
+    float distance = 50000;
+    float tolernece = 0.001 ;
+    int maxreps = 30;
+    int maxCounter = maxreps * (noOfJoints - 1), repNo = 0;
+    float targetLoc[3] = {x, y, z};
+    int target = noOfJoints - 1;
+    float totalLength = 0;
+    if(noOfJoints>noOfJoints){
+        return false;
+    }
+    for (int i = 1; i < noOfJoints;i++){
+        totalLength += linkLengths[i];
+    }
+    if (sqrt(pow(x, 2) + pow(y, 2) + pow(z - linkLengths[0], 2)) > totalLength)
+    {
+        Serial << "Postion Can't be reached\n";
+        return false;
+    }
+    angles[0] = atan2(x, -y);
+    if (angles[0] < 0)
+    {
+        angles[0] += M_PI;
+    }
+    while (tolernece < distance)
+    {
+        //Find angle between the link to end effector and link to target
+        Matrix<4, 4> o[noOfJoints + 1];
+        ForwardKinematics(o, angles, linkLengths);
+        float endEffectorDist[3], targetDist[3];
+        for (int i = 0; i < 3; i++)
+        {
+            endEffectorDist[i] = o[noOfJoints](i, 3) - o[target](i, 3);
+            targetDist[i] = targetLoc[i] - o[target](i, 3);
+        }
+        float angleBet = findAngle(endEffectorDist, targetDist, 3);
+        angles[target] -= angleBet;
 
-    // angles[0]=atan(y/ x);
-    // A = (x - linkLengths[3] * cos(angles[0]) * cos(theta));
-    // B = (y - linkLengths[3] * sin(angles[0]) * cos(theta));
-    // C = z - linkLengths[0] - linkLengths[3] * sin(theta);
-    // cosAngle_2_num = pow(A, 2) + pow(B, 2) + pow(C, 2) - pow(linkLengths[1], 2) - pow(linkLengths[2], 2);
-    // if (abs(cosAngle_2_num) < 0.001)
-    // {
-    //     angles[2]=-pi/2;
-    // }
-    // else if (abs(pow(A, 2) + pow(B, 2) + pow(C, 2) - pow((linkLengths[1] + linkLengths[2]), 2)) < 0.0001)
-    // {
-    //     angles[2]=0;
-    // }
-    // else{
-    //     cosAngle_2=cosAngle_2_num/(2*linkLengths[2]*linkLengths[1]);
-    //     if(cosAngle_2>1||cosAngle_2<0){
-    //         Serial<<"Can't Reach Point.\n";
-    //         return false;
-    //     }
-    //     angles[2]=acos(cosAngle_2);
-    // }
+        //confirm is in the correct direction
+        ForwardKinematics(o, angles, linkLengths);
+        for (int i = 0; i < 3; i++)
+        {
+            endEffectorDist[i] = o[noOfJoints](i, 3) - o[target ](i, 3);
+            targetDist[i] = targetLoc[i] - o[target](i, 3);
+        }
+        angleBet = findAngle(endEffectorDist, targetDist, 3);
+        angles[target] += angleBet;
+        //Limit the angle of the motor
+        if (abs(angles[target]) > M_PI_2)
+        {
+            angles[target] = angles[target] * M_PI_2 / abs(angles[target]);
+        }
+        //Find endeffector to target distance
+        ForwardKinematics(o, angles, linkLengths);
+        float d[3];
+        for (int i = 0; i < 3; i++)
+        {
+            d[i] = targetLoc[i] - o[noOfJoints](i, 3);
+        }
 
-    // if(abs(C)<0.0001){
-    //     C=0;
-    // }
-    // float R;
-    // R = pow(A, 2) + pow(B, 2);
-    // if(A<-0.001){
-    //     R = -R;
-    // }
-    // findAngles1_3(angles, theta, R, C);
-    // if(abs(angles[3])>pi_2||angles[1]<0||angles[1]>pi){
-    //     angles[2]=-angles[2];
-    //     findAngles1_3(angles,theta,R,C);
-    // }
-    // for(int i=0;i<noOfJoints;i++){
-    //     angles[i]=roundXdp(angles[i],2);
-    //     if(i==1){
-    //         if (angles[i]>M_PI ||angles[i]<0){
-    //             Serial<<"Cant Reach Point.\n";
-    //             return false;
-    //         }
-    //     }else{
-    //         if (abs(angles[i])>M_PI_2){
-    //             Serial<<"Cant Reach Point.\n";
-    //             return false;
-    //         }
-    //     }
-    // }
+        distance = vectorLength(d, 3);
+        target--;
+        if(target<1){
+            target = noOfJoints - 1;
+        }
+        repNo++;
+        if (repNo >= maxCounter)
+        {
 
-    // for( int i=0;i<noOfJoints;i++){
-    //     if(i!=1){
-    //         angles[i]+=M_PI_2;
-    //     }
-    //     angles[i]=round(todeg(angles[i]));
-    //     servoMotors[i].write(angles[i]);
-    //     Serial<<angles[i]<<", ";
-    // }
-    // Serial<<"\n";
-    // return true;
+            Serial << "Postion Can't be reached: "<< distance<<"\n";
+            return false;
+        }
+        
+    }
 
-  float angles[4];
-  int lengths[noOfJoints-1];
-  for(int i=1;i<noOfJoints;i++){
-    lengths[i-1]=linkLengths[i]*1000;
-  }
-  Fabrik2D fabrik2D(noOfJoints, lengths);
-  fabrik2D.setTolerance(0.0001);
-  float theta = (theta_deg * M_PI / 180);
-  float new_x = 1000 * x;
-  float new_y = 1000 * y;
-  float new_z = 1000 * (z - linkLengths[0]);
-  bool output=fabrik2D.solve2(new_x,new_z,new_y, lengths);
-  if(!output){
-      Serial << "Point can't be reached\n";
-      return output;
-  }
-  angles[1] = fabrik2D.getAngle(0);
-  angles[2] = fabrik2D.getAngle(1);
-  angles[3] = fabrik2D.getAngle(2);
-  angles[0] = fabrik2D.getBaseAngle();
-  for( int i=0;i<noOfJoints;i++){
-      angles[i] = angles[i] * 180 / M_PI + 90;
-      servoMotors[i].write(angles[i]);
-      Serial << angles[i] << ", ";
-  }
-  Serial << "\n";
-
- 
-
-  return output;
+    Matrix<4, 4> o[noOfJoints + 1];
+    ForwardKinematics(o, angles, linkLengths);
+    Serial << o[4] << "\n";
+    angles[0] -= M_PI_2;
+    for (int i = 0; i < noOfJoints; i++)
+    {
+        angles[i] = angles[i] * 180 / M_PI + 90;
+        servoMotors[i].write(angles[i]);
+        Serial << angles[i] << ", ";
+    }
+    Serial << "\n";
 
 }
 
+bool RobotArm::Move_position_xyz_theta(float final_x=0, float final_y=0,float final_z=0,float theta_deg=0){
+    float angles[4];
+    for (int i = 0; i < noOfJoints; i++){
+        angles[i] = (servoMotors[i].read() - 90) * M_PI / 180;
+    }
+    float distance = 50000;
+    float tolernece = 0.005;
+    int maxreps = 50;
+    int maxCounter = maxreps * (noOfJoints - 2), repNo = 0;
+    float theta = theta_deg * M_PI / 180;
+    int jointNo = noOfJoints - 1;
+    int target = 2;
+    float totalLength = 0;
 
+    for (int i = 1; i < jointNo;i++){
+        totalLength += linkLengths[i];
+    }
+    
+    angles[0] = atan2(final_x, -final_y);
+    if (angles[0] < 0)
+    {
+        angles[0] += M_PI;
+    }
+    float x = final_x - linkLengths[3] * cos(theta) * cos(angles[0]-M_PI_2);
+    float y = final_y - linkLengths[3] * cos(theta) * sin(angles[0]-M_PI_2);
+    float z = final_z - linkLengths[3] * sin(theta);
+    if (sqrt(pow(x, 2) + pow(y, 2) + pow(z - linkLengths[0], 2)) > totalLength)
+    {
+        Serial << "Postion Can't be reached\n";
+        return false;
+    }
+    float targetLoc[3] = {x, y, z};
+    Serial << x << ", " << y << ",  " << z << ", " << theta << "\n";
+    while (tolernece < distance)
+    {
+        Serial << target << "\n";
+        //Find angle between the link to end effector and link to target
+        Matrix<4, 4> o[noOfJoints + 1];
+        ForwardKinematics(o, angles, linkLengths);
+        Serial << o[target] << "\n";
+        Serial << o[jointNo] << "\n";
+        float endEffectorDist[3], targetDist[3];
+        for (int i = 0; i < 3; i++)
+        {
+            endEffectorDist[i] = o[jointNo](i, 3) - o[target](i, 3);
+            targetDist[i] = targetLoc[i] - o[target](i, 3);
+            Serial << endEffectorDist[i] << ", " << targetDist[i] << "\n";
+        }
+        float angleBet = findAngle(endEffectorDist, targetDist, 3);
+        Serial << angleBet << "\n";
+        angles[target] -= angleBet;
+        //confirm is in the correct direction
+        ForwardKinematics(o, angles, linkLengths);
+        for (int i = 0; i < 3; i++)
+        {
+            endEffectorDist[i] = o[jointNo](i, 3) - o[target ](i, 3);
+            targetDist[i] = targetLoc[i] - o[target](i, 3);
+        }
+        angleBet = findAngle(endEffectorDist, targetDist, 3);
+        angles[target] += angleBet;
+        //Limit the angle of the motor
+        if (abs(angles[target]) > M_PI_2)
+        {
+            angles[target] = angles[target] * M_PI_2 / abs(angles[target]);
+        }
+        //Find endeffector to target distance
+        ForwardKinematics(o, angles, linkLengths);
+        float d[3];
+        for (int i = 0; i < 3; i++)
+        {
+            d[i] = targetLoc[i] - o[jointNo](i, 3);
+        }
+
+        distance = vectorLength(d, 3);
+        Serial << distance*1000 << "\n";
+        target--;
+        if(target<1){
+            target = 2;
+        }
+        repNo++;
+        if (repNo >= maxCounter)
+        {
+            Serial << "Postion Can't be reached\n";
+            return false;
+        }
+        
+    }
+     Matrix<4, 4> o[noOfJoints + 1];
+    ForwardKinematics(o, angles, linkLengths);
+    Serial << o[4] << "\n";
+    angles[0] -= M_PI_2;
+    angles[3] = -theta + M_PI_2 - angles[1] - angles[2];
+    for (int i = 0; i < noOfJoints; i++)
+    {
+        angles[i] = angles[i] * 180 / M_PI + 90;
+        servoMotors[i].write(angles[i]);
+        Serial << angles[i] << ", ";
+    }
+    Serial << "\n";
+
+}
+
+float RobotArm::dotProduct(float v1[], float v2[], int size = 3){
+    float value = 0;
+    for (int i = 0; i < size; i++)
+    {
+        value += v1[i] * v2[i];
+    }
+    return value;
+}
+float RobotArm::vectorLength(float v[], int size = 3){
+    float value = 0;
+    for (int i = 0; i < size;i++){
+        value += pow(v[i], 2);
+    }
+    return sqrt(value);
+}
+
+float RobotArm::findAngle(float v1[], float v2[], int size = 3){
+    float dot = dotProduct(v1, v2, size);
+    float size_1 = vectorLength(v1, size);
+    float size_2 = vectorLength(v2, size);
+    float cos_alpha = (dot / (size_1 * size_2));
+    if(cos_alpha>1){
+        cos_alpha = 1;
+    }else if(cos_alpha<-1){
+        cos_alpha = -1;
+    }
+   // Serial << dot << ", " << size_1 << ", " << size_2 << ", " << cos_alpha << "\n";
+    return acos(cos_alpha);
+}
 
 // Uses velocity IK to determine actuation for motors
 void RobotArm::Move(float vx, float vy, float vz, float wx, float wy, float wz)
@@ -362,7 +486,7 @@ void RobotArm::Move(float vx, float vy, float vz, float wx, float wy, float wz)
 
 float RobotArm::GetServoDegrees(int servo)
 {
-    return (Mapf(analogRead(servo), servoLowerLimit[servo], servoUpperLimit[servo], 0, 180));
+    return servoMotors[servo].read();
 }
 
 float RobotArm::Mapf(float value, float fromLow, float fromHigh, float toLow, float toHigh)

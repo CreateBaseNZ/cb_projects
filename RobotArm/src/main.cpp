@@ -2,6 +2,8 @@
 #include "RobotArm.h"
 #include "SoftwareSerial.h"
 #include "VarSpeedServo.h"
+#include "Geometry.h"
+#include "BasicLinearAlgebra.h"
 
 float linkLengths[] = {0.05, 0.105, 0.105, 0.045};
 RobotArm robotArm(linkLengths);
@@ -102,14 +104,29 @@ void setup()
   //delay(1000);
   // noOfPositions=EnterInputPos(positions);
   // Serial<<"Start Shooting!!\n";
-  float angles[4] = {M_PI_4, -M_PI_4, 0, 0};
+  float angles[4] = {0, M_PI_4, M_PI_4,M_PI_2};
 
   float z = linkLengths[0] + linkLengths[1] * cos(angles[1]) + linkLengths[2] * cos(angles[1] + angles[2]) + linkLengths[3] *cos(angles[1] + angles[2] + angles[3]);
   float r =  linkLengths[1] * sin(angles[1]) + linkLengths[2] * sin(angles[1] + angles[2]) + linkLengths[3] *sin(angles[1] + angles[2] + angles[3]);
   float x = r * cos(angles[0]);
   float y = r * sin(angles[0]);
-  float theta = angles[1] + angles[2] + angles[3]+M_PI_2;
-  robotArm.Move_position_xyz(x, y, z, theta * 180 / M_PI);
+  float theta = -(angles[1] + angles[2] + angles[3]-M_PI_2);
+
+
+  // robotArm.Move_position_xyz(x, y, z, theta * 180 / M_PI);
+  //Serial << o << "\n";
+  // float angles[4] = {M_PI_2, 0,0 ,M_PI_4 };
+  // Matrix<4, 4> o[noOfJoints+1];
+  // robotArm.ForwardKinematics(o, angles, linkLengths);
+  // Serial << o[0] << "\n";
+  // Serial << o[1] << "\n";
+  // Serial << o[2] << "\n";
+  // Serial << o[3] << "\n";
+  // Serial << o[4] << "\n";
+
+  Serial<< x << ", " << y << ",  " << z << ", " << theta << "\n";
+  robotArm.Move_position_xyz_theta(x, y, z, theta * 180 / M_PI);
+  Serial << x << ", " << y << ",  " << z << ", " << theta << "\n";
 }
 
 void loop()
@@ -158,7 +175,8 @@ void loop()
   //   }    
   // }
   //robotArm.DetectPassage();
-
-  
-  
+  // float angles[4] = {0, 0, 0, 0};
+  // Matrix<4, 4> o[noOfJoints+1];
+  // robotArm.ForwardKinematics(o, angles, linkLengths);
+  // Serial << o[0] << "\n";
 }
