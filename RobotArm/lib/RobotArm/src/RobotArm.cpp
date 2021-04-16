@@ -8,7 +8,7 @@ RobotArm::RobotArm(float linkLengths[])
 {
     if (sizeof(*linkLengths) != noOfJoints + 1)
     {
-        Serial.println("Bad initialisation of Robot Arm");
+        //Serial.println("Bad initialisation of Robot Arm");
     }
     for (int i = 0; i < noOfJoints + 1; i++)
     {
@@ -31,6 +31,7 @@ void RobotArm::DetachMotors()
         servoMotors[i].detach();
     }
 }
+
 void RobotArm::ConfigureBasketBall(int pins[],int number,int limit[]){
     for(int i=0;i<number;i++){
         pinMode(pins[i],INPUT);
@@ -47,6 +48,7 @@ void RobotArm::ConfigurePins(int pins[])
         servoMotors[i].write(90);
     }
 }
+
 void RobotArm::ConfigureUltraSonic(int pins[],int sonars){
     for(int i=0;i<sonars;i++){
         sonarTrigPin[i]=pins[i];
@@ -74,7 +76,6 @@ float RobotArm::findDistance(int sonarNo){
     return -1;
 }
 
-
 float RobotArm::torad(float angle){
     return angle*M_PI/180;
 }
@@ -83,20 +84,15 @@ float RobotArm::todeg(float angle){
     return angle*180/M_PI;
 }
 
-
-
 void RobotArm::HandControl(){
     float lowest=10,distance,velocities[3]={0,0,0};int lowsetindex=-1;
     for(int i=0;i<sonarUsed;i++){
         distance=findDistance(i);
-        // Serial<<distance<<", ";
         if(distance<lowest&&distance>=0){
             lowsetindex=i;
             lowest=distance;
         }
     }
-    // Serial<<"\n";
-    // Serial<<lowest<<"\n";
 
     if(lowsetindex!=-1){    
         velocities[lowsetindex]=0.0025;
@@ -124,7 +120,6 @@ void RobotArm::HandControl(){
 
 }
 
-
 float RobotArm::Circle_round(float input){
     while(input<=-M_PI){
         input+=2*M_PI;
@@ -135,79 +130,37 @@ float RobotArm::Circle_round(float input){
     return input;
 }
 
-
 float RobotArm::roundXdp(float input,int decimalPlaces){
     float divider=pow(10,-decimalPlaces);
     return (round(input/divider))*divider;
 }
 
+bool RobotArm::Move_position_cyclinder_theta(float r, float alpha_deg,float z, float theta_deg){
+    float alpha = alpha_deg * M_PI / 180;
+    float x = r * cos(alpha);
+    float y = r * sin(alpha);
+    return Move_position_cart_theta(x, y, z, theta_deg);
+}
 
+bool RobotArm::Move_position_cyclinder(float r, float alpha_deg,float z){
+    float alpha = alpha_deg * M_PI / 180;
+    float x = r * cos(alpha);
+    float y = r * sin(alpha);
+    return Move_position_cart(x, y, z);
+}
 
-bool RobotArm::Move_position_4link(float r,float z, float theta_deg, float alpha_deg){
-    float pi=M_PI,pi_2=M_PI_2;
-    float alpha=Circle_round(torad(alpha_deg));
-    float theta=torad(theta_deg);
-    float R,C,angles[4],cosAngle_2=0.0,cosAngle_2_num; 
+void RobotArm::getToPosition_cylinder(float r, float alpha_deg,float z){
+    float alpha = alpha_deg * M_PI / 180;
+    float x = r * cos(alpha);
+    float y = r * sin(alpha);
+    this->getToPosition_cart(x, y, z);
+}
 
-    angles[0]=atan(sin(alpha)/ cos(alpha));
-    R=-linkLengths[3]*cos(theta);
-    if(abs(alpha)>pi_2){
-        R-=r;
-    }else{
-        R+=r;
-    }
-    if(abs(R)<0.001){
-        R=0;
-    }
-    C=z-linkLengths[0]-linkLengths[3]*sin(theta);
-    cosAngle_2_num=pow(R,2)+pow(C,2)-pow(linkLengths[1],2)-pow(linkLengths[2],2);
-    if(abs(cosAngle_2_num)<0.001){
-        angles[2]=-pi/2;
-    }else if(abs(pow(R,2)+pow(C,2)-pow((linkLengths[1]+linkLengths[2]),2))<0.0001){
-        angles[2]=0;
-    }
-    else{
-        cosAngle_2=cosAngle_2_num/(2*linkLengths[2]*linkLengths[1]);
-        if(cosAngle_2>1||cosAngle_2<0){
-            Serial<<"Can't Reach Point.\n";
-            return false;
-        }
-        angles[2]=acos(cosAngle_2);
-    }
-
-    if(abs(C)<0.0001){
-        C=0;
-    }
-    findAngles1_3(angles,theta,R,C);
-    if(abs(angles[3])>pi_2||angles[1]<0||angles[1]>pi){
-        angles[2]=-angles[2];
-        findAngles1_3(angles,theta,R,C);
-    }
-    for(int i=0;i<noOfJoints;i++){
-        angles[i]=roundXdp(angles[i],2);
-        if(i==1){
-            if (angles[i]>M_PI ||angles[i]<0){
-                Serial<<"Cant Reach Point.\n";
-                return false;
-            }
-        }else{
-            if (abs(angles[i])>M_PI_2){
-                Serial<<"Cant Reach Point.\n";
-                return false;
-            }
-        }
-    }
-
-    for( int i=0;i<noOfJoints;i++){
-        if(i!=1){
-            angles[i]+=M_PI_2;
-        }
-        angles[i]=round(todeg(angles[i]));
-        servoMotors[i].write(angles[i]);
-        Serial<<angles[i]<<", ";
-    }
-    Serial<<"\n";
-    return true;
+void RobotArm::getToPosition_cylinder_theta(float r, float alpha_deg,float z, float theta_deg){
+    float alpha = alpha_deg * M_PI / 180;
+    float x = r * cos(alpha);
+    float y = r * sin(alpha);
+    getToPosition_cart_theta(x, y, z, theta_deg);
 }
 
 void RobotArm::findAngles1_3(float angles[],float theta,float R,float C){
@@ -225,8 +178,7 @@ void RobotArm::findAngles1_3(float angles[],float theta,float R,float C){
     angles[3]=Circle_round(angles[3]);
 }
 
-
-bool RobotArm::Move_position_xyz(float x=0, float y=0,float z=0){
+bool RobotArm::Move_position_cart(float x=0, float y=0,float z=0){
     float angles[4];
     for (int i = 0; i < noOfJoints; i++){
         angles[i] = (servoMotors[i].read() - 90) * M_PI / 180;
@@ -295,31 +247,24 @@ bool RobotArm::Move_position_xyz(float x=0, float y=0,float z=0){
         if(target<1){
             target = noOfJoints - 1;
         }
-        repNo++;
-        if (repNo >= maxCounter)
-        {
-
-            Serial << "Postion Can't be reached: "<< distance<<"\n";
-            return false;
+        if(repNo>=maxCounter){
+            break;
         }
-        
+        repNo++;
     }
 
     Matrix<4, 4> o[noOfJoints + 1];
     ForwardKinematics(o, angles, linkLengths);
-    Serial << o[4] << "\n";
     angles[0] -= M_PI_2;
     for (int i = 0; i < noOfJoints; i++)
     {
-        angles[i] = angles[i] * 180 / M_PI + 90;
-        servoMotors[i].write(angles[i]);
-        Serial << angles[i] << ", ";
+        targetAngle[i] = angles[i] * 180 / M_PI + 90;
+        servoMotors[i].write(targetAngle[i],50);
     }
-    Serial << "\n";
-
+    return true;
 }
 
-bool RobotArm::Move_position_xyz_theta(float final_x=0, float final_y=0,float final_z=0,float theta_deg=0){
+bool RobotArm::Move_position_cart_theta(float final_x=0, float final_y=0,float final_z=0,float theta_deg=0){
     float angles[4];
     for (int i = 0; i < noOfJoints; i++){
         angles[i] = (servoMotors[i].read() - 90) * M_PI / 180;
@@ -351,24 +296,18 @@ bool RobotArm::Move_position_xyz_theta(float final_x=0, float final_y=0,float fi
         return false;
     }
     float targetLoc[3] = {x, y, z};
-    Serial << x << ", " << y << ",  " << z << ", " << theta << "\n";
     while (tolernece < distance)
     {
-        Serial << target << "\n";
         //Find angle between the link to end effector and link to target
         Matrix<4, 4> o[noOfJoints + 1];
         ForwardKinematics(o, angles, linkLengths);
-        Serial << o[target] << "\n";
-        Serial << o[jointNo] << "\n";
         float endEffectorDist[3], targetDist[3];
         for (int i = 0; i < 3; i++)
         {
             endEffectorDist[i] = o[jointNo](i, 3) - o[target](i, 3);
             targetDist[i] = targetLoc[i] - o[target](i, 3);
-            Serial << endEffectorDist[i] << ", " << targetDist[i] << "\n";
         }
         float angleBet = findAngle(endEffectorDist, targetDist, 3);
-        Serial << angleBet << "\n";
         angles[target] -= angleBet;
         //confirm is in the correct direction
         ForwardKinematics(o, angles, linkLengths);
@@ -393,32 +332,57 @@ bool RobotArm::Move_position_xyz_theta(float final_x=0, float final_y=0,float fi
         }
 
         distance = vectorLength(d, 3);
-        Serial << distance*1000 << "\n";
         target--;
         if(target<1){
             target = 2;
         }
-        repNo++;
-        if (repNo >= maxCounter)
-        {
-            Serial << "Postion Can't be reached\n";
-            return false;
+        if(repNo>=maxCounter){
+            break;
         }
+        repNo++;
         
     }
-     Matrix<4, 4> o[noOfJoints + 1];
-    ForwardKinematics(o, angles, linkLengths);
-    Serial << o[4] << "\n";
+
     angles[0] -= M_PI_2;
     angles[3] = -theta + M_PI_2 - angles[1] - angles[2];
     for (int i = 0; i < noOfJoints; i++)
     {
-        angles[i] = angles[i] * 180 / M_PI + 90;
-        servoMotors[i].write(angles[i]);
-        Serial << angles[i] << ", ";
+        targetAngle[i] = angles[i] * 180 / M_PI + 90;
+        servoMotors[i].write(targetAngle[i],50);
     }
-    Serial << "\n";
+    return true;
+}
 
+void RobotArm::getToPosition_cart(float x, float y, float z){
+    bool reached = false;
+    Move_position_cart(x, y, z);
+    while (!reached){
+        for (int i = 0; i < noOfJoints;i++){
+            if (this->servoMotors[i].read()!=targetAngle[i]){
+                break;
+            }
+            if(i==noOfJoints+1){
+                reached = true;
+                break;
+            }
+        }
+    }
+}
+
+void RobotArm::getToPosition_cart_theta(float x, float y, float z,float theta){
+    bool reached = false;
+    Move_position_cart_theta(x, y, z,theta);
+    while (!reached){
+        for (int i = 0; i < noOfJoints;i++){
+            if (this->servoMotors[i].read()!=targetAngle[i]){
+                break;
+            }
+            if(i==noOfJoints+1){
+                reached = true;
+                break;
+            }
+        }
+    }
 }
 
 float RobotArm::dotProduct(float v1[], float v2[], int size = 3){
@@ -429,6 +393,7 @@ float RobotArm::dotProduct(float v1[], float v2[], int size = 3){
     }
     return value;
 }
+
 float RobotArm::vectorLength(float v[], int size = 3){
     float value = 0;
     for (int i = 0; i < size;i++){
@@ -447,7 +412,6 @@ float RobotArm::findAngle(float v1[], float v2[], int size = 3){
     }else if(cos_alpha<-1){
         cos_alpha = -1;
     }
-   // Serial << dot << ", " << size_1 << ", " << size_2 << ", " << cos_alpha << "\n";
     return acos(cos_alpha);
 }
 
@@ -468,7 +432,7 @@ void RobotArm::Move(float vx, float vy, float vz, float wx, float wy, float wz)
         if(servoVelocity(i)>0){
             dir=180;
         }
-        if((servoMotors[i].read()==0&&servoVelocity(i)<0)||(servoMotors[i].read()==180&&servoVelocity(i)>0||isnan(servoVelocity(i)))){
+        if((servoMotors[i].read()==0&&servoVelocity(i)<0)||(servoMotors[i].read()==180 &&servoVelocity(i)>0)||isnan(servoVelocity(i))){
             for(int j=0;j<noOfJoints;j++){
                 servoMotors[j].write(Mapf(jointAngles[j],-M_PI_2,M_PI_2,0,180));
             }
@@ -494,8 +458,6 @@ float RobotArm::Mapf(float value, float fromLow, float fromHigh, float toLow, fl
     return ((value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow);
 }
 
-
-
 // Performs forward kinematics on the arm to determine the end effectors transformation matrix
 void RobotArm::ForwardKinematics(Matrix<4, 4> o[], float r[], float t[])
 {
@@ -518,7 +480,6 @@ void RobotArm::ForwardKinematics(Matrix<4, 4> o[], float r[], float t[])
         
     }
 }
-
 
 // Calculates jacobian matrix for the robotic arm required for velocity IK
 Matrix<noOfJoints, noOfJoints> RobotArm::CalculateJacobian(Matrix<4, 4> transform[])
@@ -587,31 +548,13 @@ bool RobotArm::DetectPassage(){
    
     for (int i=0;i<3;i++){
         int val=analogRead(phototransisorPins[i]);
-        Serial<<val<<",";
         if(val>limits[i]){
-            Serial<<"Score!!"<<"\n";
            delay(1000);
            return true;
         }
     }
-    //delay(250);
-    Serial<<"\n";
     return false;
-    //  
-    // 
-    // if(val<350){
-    //     return false;
-    // }else{
-    //     Serial<<"Score!!"<<"\n";
-    //     delay(1000);
-    //     return true;
-    // }
 }
-
-
-
-
-
 
 //////////////////////////////////////////////////////
 
@@ -619,7 +562,6 @@ void RobotArm::ResetDraw(){
     DrawValue=0;
     DrawingDone=false;
 }
-
 
 void RobotArm::DrawSquare(float Length,float z){
     if(!DrawingDone){
@@ -636,7 +578,7 @@ void RobotArm::DrawSquare(float Length,float z){
             drawingAngle=180;
         }
 
-        if(Move_position_4link(raduis,z,drawingAngle,angle)){
+        if(Move_position_cyclinder_theta(raduis,angle,z,drawingAngle)){
             bool notReached=false;
             for(int i=0;i<noOfJoints && !notReached;i++){
                 float error=servoMotors[i].read()-GetServoDegrees(i);
@@ -663,7 +605,7 @@ void RobotArm::DrawSquare(float Length,float z){
 void RobotArm::DrawCircle(float raduis, float z){
     int interval= 360/45;
     if(!DrawingDone){
-        if(Move_position_4link(raduis,z,-90,DrawValue*interval)){
+        if(Move_position_cyclinder_theta(raduis,DrawValue*interval,z,-90)){
             bool notReached=false;
             for(int i=0;i<noOfJoints && !notReached;i++){
                 float error=servoMotors[i].read()-GetServoDegrees(i);
@@ -717,7 +659,6 @@ void RobotArm::FindLocation(float locations[]){
     locations[3]=todeg(atan2(y,x));
     locations[0]=abs(sqrt(pow(x,2)+pow(y,2)));
 }
-
 
 // Solves systems of equations through gaussian elimination method.
 Matrix<noOfJoints, 1> RobotArm::GaussianElimination(Matrix<noOfJoints, noOfJoints> jacobian, Matrix<noOfJoints, 1> targetVelocity)
@@ -779,10 +720,8 @@ Matrix<noOfJoints, 1> RobotArm::GaussianElimination(Matrix<noOfJoints, noOfJoint
 // the positional feedback value
 void RobotArm::CalibrateServos()
 {
-    Serial.println("Calibrating...");
     for (int i = 0; i < noOfJoints; i++)
     {
-        Serial << "Calirbrating Lower: " << i << "\n";
         servoMotors[i].write(0);
         delay(3000);        
         servoLowerLimit[i] = analogRead(i);
@@ -791,11 +730,9 @@ void RobotArm::CalibrateServos()
     delay(3000);
     for (int i = 0; i < noOfJoints; i++)
     {
-        Serial << "Calirbrating higher: " << i << "\n";
         servoMotors[i].write(180);
         delay(3000);
         servoUpperLimit[i] = analogRead(i);
         servoMotors[i].write(90);
     }
-    Serial.println("Calibration Complete");
 }

@@ -16,8 +16,10 @@
 class RobotArm
 {
 public:
-    bool Move_position_xyz_theta(float final_x, float final_y, float final_z, float theta_deg);
-    bool Move_position_xyz(float x, float y, float z);
+    void getToPosition_cart(float x, float y, float z);
+    void getToPosition_cart_theta(float x, float y, float z,float theta);
+    bool Move_position_cart_theta(float final_x, float final_y, float final_z, float theta_deg);
+    bool Move_position_cart(float x, float y, float z);
     float jointAngles[noOfJoints];
     VarSpeedServo servoMotors[noOfJoints];
     bool DetectPassage();
@@ -34,14 +36,18 @@ public:
     void ConfigureUltraSonic(int pins[],int sonars);
     void CalibrateServos();
     void Move(float vx, float vy, float vz, float wx, float wy, float wz);
-    bool Move_position_4link(float r,float z, float theta, float alpha);
+    bool Move_position_cyclinder(float r, float alpha_deg,float z);
+    bool Move_position_cyclinder_theta(float r, float alpha_deg,float z, float theta_deg);
+    void getToPosition_cylinder(float r, float alpha_deg,float z);
+    void getToPosition_cylinder_theta(float r, float alpha_deg,float z, float theta_deg);
     float GetServoDegrees(int servoNumber);
     float Mapf(float value, float fromLow, float fromHigh, float toLow, float toHigh);
     void ConfigureBasketBall(int pins[],int number,int limit[]);
     void ForwardKinematics(Matrix<4, 4> o[], float r[], float t[]);
-
+    int targetAngle[4] = {0, 0, 0, 0};
 private:
     int noOfTransitors=0;
+    
     int phototransisorPins[noOfPhototransitors];
     int limits[noOfPhototransitors];
     int servoLowerLimit[noOfJoints];

@@ -58,7 +58,7 @@ int EnterInputPos(float pos[10][3]){
         }
       }else{
         if(length==3){
-          if(robotArm.Move_position_4link(data[0],data[1],0,data[2])){
+          if(robotArm.Move_position_cyclinder_theta(data[0],data[2],data[1],0)){
             for(int i=0;i<3;i++){
               pos[index][i]=data[i];
             }
@@ -125,19 +125,13 @@ void setup()
   // Serial << o[4] << "\n";
 
   Serial<< x << ", " << y << ",  " << z << ", " << theta << "\n";
-  robotArm.Move_position_xyz_theta(x, y, z, theta * 180 / M_PI);
+  //robotArm.Move_position_xyz_theta(x, y, z, theta * 180 / M_PI);
   Serial << x << ", " << y << ",  " << z << ", " << theta << "\n";
 }
 
 void loop()
 {
   //This Section is for position controller testing
-  // if(Serial.available()){
-  //   numRead = Serial.readBytesUntil('\n', bitData, sizeof(bitData) - 1);
-  //   float out[5];
-  //   Parse(bitData,out);
-  //   robotArm.Move_position_4link(out[0],out[1],out[2] ,out[3]);
-  // }
 
   //Testing Inverse Kinematics
   // Matrix<4, 4> o[noOfJoints+1];
