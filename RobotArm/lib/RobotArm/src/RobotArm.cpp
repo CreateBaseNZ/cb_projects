@@ -135,14 +135,14 @@ float RobotArm::roundXdp(float input,int decimalPlaces){
     return (round(input/divider))*divider;
 }
 
-bool RobotArm::Move_position_cyclinder_theta(float r, float alpha_deg,float z, float theta_deg){
+bool RobotArm::Move_position_cylinder_theta(float r, float alpha_deg,float z, float theta_deg){
     float alpha = alpha_deg * M_PI / 180;
     float x = r * cos(alpha);
     float y = r * sin(alpha);
     return Move_position_cart_theta(x, y, z, theta_deg);
 }
 
-bool RobotArm::Move_position_cyclinder(float r, float alpha_deg,float z){
+bool RobotArm::Move_position_cylinder(float r, float alpha_deg,float z){
     float alpha = alpha_deg * M_PI / 180;
     float x = r * cos(alpha);
     float y = r * sin(alpha);
@@ -163,25 +163,103 @@ void RobotArm::getToPosition_cylinder_theta(float r, float alpha_deg,float z, fl
     getToPosition_cart_theta(x, y, z, theta_deg);
 }
 
-void RobotArm::findAngles1_3(float angles[],float theta,float R,float C){
-    float a,b,pi=M_PI;
-    a=roundXdp(linkLengths[2]*sin(angles[2]),4);
-    b=roundXdp(linkLengths[1]+linkLengths[2]*cos(angles[2]),4);
-    float At_1,At_2;
-    At_2=atan2(a,b);
-    At_1=atan2(C,R);                    
-    angles[1]=roundXdp(At_1-At_2,3);
-    if(angles[1]<-0.01){
-        angles[1]+=2*pi;
-    }
-    angles[3]=theta-angles[2]-angles[1];
-    angles[3]=Circle_round(angles[3]);
+bool RobotArm::Move_position_spherical_theta(float R, float alpha_deg,float phi_deg, float theta_deg){
+    float alpha = alpha_deg * M_PI / 180;
+    float phi = phi_deg * M_PI / 180;
+    float z = R * sin(phi);
+    float r = R * cos(phi);
+    float x = r * cos(alpha);
+    float y = r * sin(alpha);
+    return Move_position_cart_theta(x, y, z, theta_deg);
 }
+
+bool RobotArm::Move_position_spherical(float R, float alpha_deg,float phi_deg){
+    float alpha = alpha_deg * M_PI / 180;
+    float phi = phi_deg * M_PI / 180;
+    float z = R * sin(phi);
+    float r = R * cos(phi);
+    float x = r * cos(alpha);
+    float y = r * sin(alpha);
+    return Move_position_cart(x, y, z);
+}
+
+void RobotArm::getToPosition_spherical(float R, float alpha_deg,float phi_deg){
+    float alpha = alpha_deg * M_PI / 180;
+    float phi = phi_deg * M_PI / 180;
+    float z = R * sin(phi);
+    float r = R * cos(phi);
+    float x = r * cos(alpha);
+    float y = r * sin(alpha);
+    this->getToPosition_cart(x, y, z);
+}
+
+void RobotArm::getToPosition_spherical_theta(float R, float alpha_deg,float phi_deg, float theta_deg){
+    float alpha = alpha_deg * M_PI / 180;
+    float phi = phi_deg * M_PI / 180;
+    float z = R * sin(phi);
+    float r = R * cos(phi);
+    float x = r * cos(alpha);
+    float y = r * sin(alpha);
+    getToPosition_cart_theta(x, y, z, theta_deg);
+}
+
+bool RobotArm::Move_x_units(float x_ch, float y_ch, float z_ch){
+    float location[4];
+    this->endEffecterPos(location);
+    float z_new = z_ch+location[2];
+    float x_new = x_ch+location[0];
+    float y_new = y_ch + location[1];
+    return Move_position_cart(x_new, y_new, z_new);
+}
+
+
+bool RobotArm::Move_x_units_theta(float x_ch, float y_ch, float z_ch,float theta_deg_ch){
+    float location[4];
+    this->endEffecterPos(location);
+    float z_new = z_ch+location[2];
+    float x_new = x_ch+location[0];
+    float y_new = y_ch + location[1];
+    float theta_deg_new = theta_deg_ch + location[3];
+    return Move_position_cart_theta(x_new, y_new, z_new, theta_deg_new);
+}
+
+void RobotArm::getToPositionShift_cart(float x_ch, float y_ch, float z_ch){
+    float location[4];
+    this->endEffecterPos(location);
+    float z_new = z_ch+location[2];
+    float x_new = x_ch+location[0];
+    float y_new = y_ch + location[1];
+    getToPosition_cart(x_new, y_new, z_new);
+}
+
+void RobotArm::getToPositionShift_cart_theta(float x_ch, float y_ch, float z_ch, float theta_deg_ch){
+    float location[4];
+    this->endEffecterPos(location);
+    float z_new = z_ch+location[2];
+    float x_new = x_ch+location[0];
+    float y_new = y_ch + location[1];
+    float theta_deg_new = theta_deg_ch + location[3];
+    getToPosition_cart_theta(x_new, y_new, z_new, theta_deg_new);
+}
+
+void RobotArm::endEffecterPos(float location[]){
+    float angles[4];
+    for (int i = 0; i < noOfJoints; i++){
+        angles[i] = (servoMotors[i].read() - 90) * M_PI / 180;
+    }
+    Matrix<4, 4> o[noOfJoints + 1];
+    ForwardKinematics(o, angles, linkLengths);
+    location[0] = -o[noOfJoints](1, 3);
+    location[1] = o[noOfJoints](0, 3);
+    location[2] = o[noOfJoints](2, 3);
+    location[3] = todeg(-angles[3] + M_PI_2 - angles[1] - angles[2]);
+}
+
 
 bool RobotArm::Move_position_cart(float x=0, float y=0,float z=0){
     float angles[4];
     for (int i = 0; i < noOfJoints; i++){
-        angles[i] = (servoMotors[i].read() - 90) * M_PI / 180;
+        angles[i] = 0;
     }
     float distance = 50000;
     float tolernece = 0.001 ;
@@ -190,9 +268,6 @@ bool RobotArm::Move_position_cart(float x=0, float y=0,float z=0){
     float targetLoc[3] = {x, y, z};
     int target = noOfJoints - 1;
     float totalLength = 0;
-    if(noOfJoints>noOfJoints){
-        return false;
-    }
     for (int i = 1; i < noOfJoints;i++){
         totalLength += linkLengths[i];
     }
@@ -267,7 +342,7 @@ bool RobotArm::Move_position_cart(float x=0, float y=0,float z=0){
 bool RobotArm::Move_position_cart_theta(float final_x=0, float final_y=0,float final_z=0,float theta_deg=0){
     float angles[4];
     for (int i = 0; i < noOfJoints; i++){
-        angles[i] = (servoMotors[i].read() - 90) * M_PI / 180;
+        angles[i] = 0;
     }
     float distance = 50000;
     float tolernece = 0.005;
@@ -361,7 +436,7 @@ void RobotArm::getToPosition_cart(float x, float y, float z){
             if (this->servoMotors[i].read()!=targetAngle[i]){
                 break;
             }
-            if(i==noOfJoints+1){
+            if(i==noOfJoints-1){
                 reached = true;
                 break;
             }
@@ -377,7 +452,7 @@ void RobotArm::getToPosition_cart_theta(float x, float y, float z,float theta){
             if (this->servoMotors[i].read()!=targetAngle[i]){
                 break;
             }
-            if(i==noOfJoints+1){
+            if(i==noOfJoints-1){
                 reached = true;
                 break;
             }
@@ -578,7 +653,7 @@ void RobotArm::DrawSquare(float Length,float z){
             drawingAngle=180;
         }
 
-        if(Move_position_cyclinder_theta(raduis,angle,z,drawingAngle)){
+        if(Move_position_cylinder_theta(raduis,angle,z,drawingAngle)){
             bool notReached=false;
             for(int i=0;i<noOfJoints && !notReached;i++){
                 float error=servoMotors[i].read()-GetServoDegrees(i);
@@ -605,7 +680,7 @@ void RobotArm::DrawSquare(float Length,float z){
 void RobotArm::DrawCircle(float raduis, float z){
     int interval= 360/45;
     if(!DrawingDone){
-        if(Move_position_cyclinder_theta(raduis,DrawValue*interval,z,-90)){
+        if(Move_position_cylinder_theta(raduis,DrawValue*interval,z,-90)){
             bool notReached=false;
             for(int i=0;i<noOfJoints && !notReached;i++){
                 float error=servoMotors[i].read()-GetServoDegrees(i);

@@ -6,7 +6,6 @@
 #include "BasicLinearAlgebra.h"
 #include "VarSpeedServo.h"
 #include "Helper.h"
-#include "FABRIK2D.h"
 
 #define noOfJoints 4
 #define noOfSonar 5
@@ -16,12 +15,28 @@
 class RobotArm
 {
 public:
-    void getToPosition_cart(float x, float y, float z);
-    void getToPosition_cart_theta(float x, float y, float z,float theta);
-    bool Move_position_cart_theta(float final_x, float final_y, float final_z, float theta_deg);
-    bool Move_position_cart(float x, float y, float z);
     float jointAngles[noOfJoints];
     VarSpeedServo servoMotors[noOfJoints];
+    //Cartesian coordinate system
+    bool Move_position_cart(float x, float y, float z);
+    bool Move_position_cart_theta(float final_x, float final_y, float final_z, float theta_deg);
+    void getToPosition_cart(float x, float y, float z);
+    void getToPosition_cart_theta(float x, float y, float z,float theta);
+    bool Move_x_units(float x_ch, float y_ch, float z_ch);
+    bool Move_x_units_theta(float x_ch, float y_ch, float z_ch, float theta_deg_ch);
+    void getToPositionShift_cart(float x_ch, float y_ch, float z_ch);
+    void getToPositionShift_cart_theta(float x_ch, float y_ch, float z_ch, float theta_deg_ch);
+    //Cylindrical coordinate system
+    bool Move_position_cylinder(float r, float alpha_deg,float z);
+    bool Move_position_cylinder_theta(float r, float alpha_deg,float z, float theta_deg);
+    void getToPosition_cylinder(float r, float alpha_deg,float z);
+    void getToPosition_cylinder_theta(float r, float alpha_deg,float z, float theta_deg);
+    //Spherical coordinate system 
+    bool Move_position_spherical(float R, float alpha_deg,float phi_deg);
+    bool Move_position_spherical_theta(float R, float alpha_deg,float phi_deg, float theta_deg);
+    void getToPosition_spherical(float R, float alpha_deg,float phi_deg);
+    void getToPosition_spherical_theta(float R, float alpha_deg, float phi_deg, float theta_deg);
+
     bool DetectPassage();
     void HandControl();
     float findDistance(int sonarNo);
@@ -36,10 +51,7 @@ public:
     void ConfigureUltraSonic(int pins[],int sonars);
     void CalibrateServos();
     void Move(float vx, float vy, float vz, float wx, float wy, float wz);
-    bool Move_position_cyclinder(float r, float alpha_deg,float z);
-    bool Move_position_cyclinder_theta(float r, float alpha_deg,float z, float theta_deg);
-    void getToPosition_cylinder(float r, float alpha_deg,float z);
-    void getToPosition_cylinder_theta(float r, float alpha_deg,float z, float theta_deg);
+    
     float GetServoDegrees(int servoNumber);
     float Mapf(float value, float fromLow, float fromHigh, float toLow, float toHigh);
     void ConfigureBasketBall(int pins[],int number,int limit[]);
@@ -47,7 +59,7 @@ public:
     int targetAngle[4] = {0, 0, 0, 0};
 private:
     int noOfTransitors=0;
-    
+    void endEffecterPos(float location[]);
     int phototransisorPins[noOfPhototransitors];
     int limits[noOfPhototransitors];
     int servoLowerLimit[noOfJoints];
@@ -65,7 +77,6 @@ private:
     float todeg(float angle);
     float Circle_round(float input);
     float round2dp(float input);
-    void findAngles1_3(float angles[],float theta,float R,float C);
     Matrix<noOfJoints, 1> GaussianElimination(Matrix<noOfJoints, noOfJoints> jacobian, Matrix<noOfJoints, 1> targetVelocity);
     Matrix<noOfJoints, noOfJoints> CalculateJacobian(Matrix<4, 4> transform[]);
     float dotProduct(float v1[], float v2[], int size);

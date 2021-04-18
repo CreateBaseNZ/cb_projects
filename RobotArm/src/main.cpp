@@ -58,7 +58,7 @@ int EnterInputPos(float pos[10][3]){
         }
       }else{
         if(length==3){
-          if(robotArm.Move_position_cyclinder_theta(data[0],data[2],data[1],0)){
+          if(robotArm.Move_position_cylinder_theta(data[0],data[2],data[1],0)){
             for(int i=0;i<3;i++){
               pos[index][i]=data[i];
             }
