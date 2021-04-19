@@ -429,8 +429,9 @@ bool RobotArm::Move_position_cart_theta(float final_x=0, float final_y=0,float f
 }
 
 void RobotArm::getToPosition_cart(float x, float y, float z){
-    bool reached = false;
-    Move_position_cart(x, y, z);
+     Move_position_cart(x, y, z);
+     bool reached = false;
+   
     while (!reached){
         for (int i = 0; i < noOfJoints;i++){
             if (this->servoMotors[i].read()!=targetAngle[i]){

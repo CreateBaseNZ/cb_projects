@@ -88,10 +88,10 @@ float t=0,last_t;
 int alpha_deg=0;
 void setup()
 {
- 
   int motorPins[4]={2,3,4,5};
-  Serial.begin(9600);
   robotArm.ConfigurePins(motorPins); 
+  Serial.begin(9600);
+  
   
   int pins[3]={15,18,19},limit[3]={180,200,140};
   robotArm.ConfigureBasketBall(pins,3,limit);
